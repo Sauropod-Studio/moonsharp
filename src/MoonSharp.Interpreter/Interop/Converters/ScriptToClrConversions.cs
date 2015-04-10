@@ -35,7 +35,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion(value.Type, typeof(System.Object));
 			if (converter != null)
 			{
-				var v = converter(value);
+                var v = converter(value, typeof(System.Object));
 				if (v != null)
 					return v;
 			}
@@ -83,7 +83,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion(value.Type, desiredType);
 			if (converter != null)
 			{
-				var v = converter(value);
+                var v = converter(value, desiredType);
 				if (v != null) return v;
 			}
 

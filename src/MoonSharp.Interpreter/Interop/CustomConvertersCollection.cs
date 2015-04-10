@@ -11,13 +11,13 @@ namespace MoonSharp.Interpreter.Interop
 	/// </summary>
 	public class CustomConvertersCollection 
 	{
-		private Dictionary<Type, Func<DynValue, object>>[] m_Script2Clr = new Dictionary<Type, Func<DynValue, object>>[(int)LuaTypeExtensions.MaxConvertibleTypes + 1];
+        private Dictionary<Type, Func<DynValue, Type, object>>[] m_Script2Clr = new Dictionary<Type, Func<DynValue, Type, object>>[(int)LuaTypeExtensions.MaxConvertibleTypes + 1];
 		private Dictionary<Type, Func<object, DynValue>> m_Clr2Script = new Dictionary<Type, Func<object, DynValue>>();
 
 		internal CustomConvertersCollection()
 		{
 			for (int i = 0; i < m_Script2Clr.Length; i++)
-				m_Script2Clr[i] = new Dictionary<Type, Func<DynValue, object>>();
+                m_Script2Clr[i] = new Dictionary<Type, Func<DynValue, Type, object>>();
 		}
 
 
@@ -27,12 +27,12 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="scriptDataType">The script data type</param>
 		/// <param name="clrDataType">The CLR data type.</param>
 		/// <param name="converter">The converter, or null.</param>
-		public void SetScriptToClrCustomConversion(DataType scriptDataType, Type clrDataType, Func<DynValue, object> converter = null)
+        public void SetScriptToClrCustomConversion(DataType scriptDataType, Type clrDataType, Func<DynValue, Type, object> converter = null)
 		{
 			if ((int)scriptDataType > m_Script2Clr.Length)
 				throw new ArgumentException("scriptDataType");
 
-			Dictionary<Type, Func<DynValue, object>> map = m_Script2Clr[(int)scriptDataType];
+            Dictionary<Type, Func<DynValue, Type, object>> map = m_Script2Clr[(int)scriptDataType];
 
 			if (converter == null)
 			{
@@ -51,13 +51,14 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="scriptDataType">The script data type</param>
 		/// <param name="clrDataType">The CLR data type.</param>
 		/// <returns>The converter function, or null if not found</returns>
-		public Func<DynValue, object> GetScriptToClrCustomConversion(DataType scriptDataType, Type clrDataType)
+        public Func<DynValue, Type, object> GetScriptToClrCustomConversion(DataType scriptDataType, Type clrDataType)
 		{
 			if ((int)scriptDataType > m_Script2Clr.Length)
 				return null;
 
-			Dictionary<Type, Func<DynValue, object>> map = m_Script2Clr[(int)scriptDataType];
-			return map.GetOrDefault(clrDataType);
+            Dictionary<Type, Func<DynValue, Type, object>> map = m_Script2Clr[(int)scriptDataType];
+            Type t = map.Keys.FirstOrDefault(x => { return x.IsAssignableFrom(clrDataType); });
+            return map.GetOrDefault(t ?? clrDataType);
 		}
 
 		/// <summary>
