@@ -97,7 +97,8 @@ namespace MoonSharp.Interpreter.Interop
 		/// <returns>The converter function, or null if not found</returns>
 		public Func<object, DynValue> GetClrToScriptCustomConversion(Type clrDataType)
 		{
-			return m_Clr2Script.GetOrDefault(clrDataType);
+            Type t = m_Clr2Script.Keys.FirstOrDefault(x => { return x.IsAssignableFrom(clrDataType); });
+            return m_Clr2Script.GetOrDefault(t ?? clrDataType);
 		}
 
 
