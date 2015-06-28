@@ -5,8 +5,8 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using MoonSharp.Interpreter.Execution;
+using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.Converters;
-using MoonSharp.Interpreter.Interop.StandardDescriptors;
 
 namespace MoonSharp.Interpreter.Interop
 {
@@ -30,6 +30,9 @@ namespace MoonSharp.Interpreter.Interop
 		public StandardUserDataDescriptor(Type type, InteropAccessMode accessMode, string friendlyName = null)
 			: base(type, friendlyName)
 		{
+			if (accessMode == InteropAccessMode.NoReflectionAllowed)
+				throw new ArgumentException("Can't create a StandardUserDataDescriptor under a NoReflectionAllowed access mode");
+
 			if (Script.GlobalOptions.Platform.IsRunningOnAOT())
 				accessMode = InteropAccessMode.Reflection;
 
@@ -55,22 +58,22 @@ namespace MoonSharp.Interpreter.Interop
 			// add declared constructors
 			foreach (ConstructorInfo ci in type.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
-				AddConstructor(StandardUserDataMethodDescriptor.TryCreateIfVisible(ci, this.AccessMode));
+				AddMember("__new", MethodMemberDescriptor.TryCreateIfVisible(ci, this.AccessMode));
 			}
 
 			// valuetypes don't reflect their empty ctor.. actually empty ctors are a perversion, we don't care and implement ours
 			if (type.IsValueType)
-				AddConstructor(new StandardUserDataMethodDescriptor(type, accessMode));
+				AddMember("__new", new ValueTypeDefaultCtorMemberDescriptor(type));
 
 
 			// add methods to method list and metamethods
 			foreach (MethodInfo mi in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
 			{
-				StandardUserDataMethodDescriptor md = StandardUserDataMethodDescriptor.TryCreateIfVisible(mi, this.AccessMode);
+				MethodMemberDescriptor md = MethodMemberDescriptor.TryCreateIfVisible(mi, this.AccessMode);
 
 				if (md != null)
 				{
-					if (!StandardUserDataMethodDescriptor.CheckMethodIsCompatible(mi, false))
+					if (!MethodMemberDescriptor.CheckMethodIsCompatible(mi, false))
 						continue;
 
 					// transform explicit/implicit conversions to a friendlier name.
@@ -80,11 +83,11 @@ namespace MoonSharp.Interpreter.Interop
 						name = mi.ReturnType.GetConversionMethodName();
 					}
 
-					AddMethod(name, md);
+					AddMember(name, md);
 
 					foreach (string metaname in mi.GetMetaNamesFromAttributes())
 					{
-						AddMetaMethod(metaname, md);
+						AddMetaMember(metaname, md);
 					}
 				}
 			}
@@ -95,7 +98,7 @@ namespace MoonSharp.Interpreter.Interop
 				if (pi.IsSpecialName || pi.GetIndexParameters().Any())
 					continue;
 
-				AddProperty(pi.Name, StandardUserDataPropertyDescriptor.TryCreateIfVisible(pi, this.AccessMode));
+				AddMember(pi.Name, PropertyMemberDescriptor.TryCreateIfVisible(pi, this.AccessMode));
 			}
 
 			// get fields
@@ -104,7 +107,7 @@ namespace MoonSharp.Interpreter.Interop
 				if (fi.IsSpecialName)
 					continue;
 
-				AddField(fi.Name, StandardUserDataFieldDescriptor.TryCreateIfVisible(fi, this.AccessMode));
+				AddMember(fi.Name, FieldMemberDescriptor.TryCreateIfVisible(fi, this.AccessMode));
 			}
 
 			// get events
@@ -113,17 +116,79 @@ namespace MoonSharp.Interpreter.Interop
 				if (ei.IsSpecialName)
 					continue;
 
-				AddEvent(ei.Name, StandardUserDataEventDescriptor.TryCreateIfVisible(ei, this.AccessMode));
+				AddMember(ei.Name, EventMemberDescriptor.TryCreateIfVisible(ei, this.AccessMode));
+			}
+
+			// get nested types and create statics
+			foreach (Type nestedType in type.GetNestedTypes(BindingFlags.NonPublic | BindingFlags.Public))
+			{
+				if (!nestedType.IsGenericTypeDefinition)
+				{
+					if (nestedType.IsNestedPublic || nestedType.GetCustomAttributes(typeof(MoonSharpUserDataAttribute), true).Length > 0)
+					{
+						var descr = UserData.RegisterType(nestedType, this.AccessMode);
+
+						if (descr != null)
+							AddDynValue(nestedType.Name, UserData.CreateStatic(nestedType));
+					}
+				}
+			}
+
+			if (Type.IsArray)
+			{
+				int rank = Type.GetArrayRank();
+
+				ParameterDescriptor[] get_pars = new ParameterDescriptor[rank];
+				ParameterDescriptor[] set_pars = new ParameterDescriptor[rank + 1];
+
+				for (int i = 0; i < rank; i++)
+					get_pars[i] = set_pars[i] = new ParameterDescriptor("idx" + i.ToString(), typeof(int));
+
+				set_pars[rank] = new ParameterDescriptor("value", Type.GetElementType());
+
+				AddMember(SPECIALNAME_INDEXER_SET, new ObjectCallbackMemberDescriptor(SPECIALNAME_INDEXER_SET, ArrayIndexerSet, set_pars));
+				AddMember(SPECIALNAME_INDEXER_GET, new ObjectCallbackMemberDescriptor(SPECIALNAME_INDEXER_GET, ArrayIndexerGet, get_pars));
+			}
+			else if (Type == typeof(Array))
+			{
+				AddMember(SPECIALNAME_INDEXER_SET, new ObjectCallbackMemberDescriptor(SPECIALNAME_INDEXER_SET, ArrayIndexerSet));
+				AddMember(SPECIALNAME_INDEXER_GET, new ObjectCallbackMemberDescriptor(SPECIALNAME_INDEXER_GET, ArrayIndexerGet));
 			}
 		}
 
 
+		private int[] BuildArrayIndices(CallbackArguments args, int count)
+		{
+			int[] indices = new int[count];
+
+			for (int i = 0; i < count; i++)
+				indices[i] = args.AsInt(i, "userdata_array_indexer");
+
+			return indices;
+		}
+
+		private object ArrayIndexerSet(object arrayObj, ScriptExecutionContext ctx, CallbackArguments args)
+		{
+			Array array = (Array)arrayObj;
+			int[] indices = BuildArrayIndices(args, args.Count - 1);
+			DynValue value = args[args.Count - 1];
+
+			Type elemType = array.GetType().GetElementType();
+
+			object objValue = ScriptToClrConversions.DynValueToObjectOfType(value, elemType, null, false);
+
+			array.SetValue(objValue, indices);
+
+			return DynValue.Void;
+		}
 
 
+		private object ArrayIndexerGet(object arrayObj, ScriptExecutionContext ctx, CallbackArguments args)
+		{
+			Array array = (Array)arrayObj;
+			int[] indices = BuildArrayIndices(args, args.Count);
 
-
-
-
-
+			return array.GetValue(indices);
+		}
 	}
 }

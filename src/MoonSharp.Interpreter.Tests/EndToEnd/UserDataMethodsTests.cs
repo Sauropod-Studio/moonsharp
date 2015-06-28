@@ -187,7 +187,12 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			public DynValue MetaIndex(Script script, object obj, string metaname)
 			{
-				throw new NotImplementedException();
+				return null;
+			}
+
+			public bool IsTypeCompatible(Type type, object obj)
+			{
+				return type.IsInstanceOfType(obj);
 			}
 		}
 
@@ -808,7 +813,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 		}
 
 		[Test]
-		public void Interop_TestAutoregisterPolicyWithDualInterfaces()
+		public void Interop_DualInterfaces()
 		{
 			string script = @"return myobj:Test1() .. myobj:Test2()";
 
@@ -912,6 +917,39 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			Assert.AreEqual(DataType.Number, res.Type);
 			Assert.AreEqual(24, res.Number);
+		}
+
+
+		[Test]
+		public void Interop_StaticInstanceAccessRaisesError()
+		{
+			try
+			{
+				UserData.UnregisterType<SomeClass>();
+
+				string script = @"    
+				t = { 'asd', 'qwe', 'zxc', ['x'] = 'X', ['y'] = 'Y' };
+				x = mystatic.ConcatI(1, 'ciao', myobj, true, t, t, 'eheh', t, myobj);
+				return x;";
+
+				Script S = new Script();
+
+				SomeClass obj = new SomeClass();
+
+				UserData.UnregisterType<SomeClass>();
+				UserData.RegisterType<SomeClass>();
+
+				S.Globals.Set("mystatic", UserData.CreateStatic<SomeClass>());
+				S.Globals.Set("myobj", UserData.Create(obj));
+
+				DynValue res = S.DoString(script);
+
+				Assert.Fail();
+			}
+			catch (Exception ex)
+			{
+				Assert.IsTrue(ex.Message.Contains("attempt to access instance member"));
+			}
 		}
 
 	}

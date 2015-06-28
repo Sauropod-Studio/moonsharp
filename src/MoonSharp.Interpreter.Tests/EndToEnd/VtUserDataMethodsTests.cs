@@ -187,7 +187,12 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			public DynValue MetaIndex(Script script, object obj, string metaname)
 			{
-				throw new NotImplementedException();
+				return null;
+			}
+
+			public bool IsTypeCompatible(Type type, object obj)
+			{
+				return type.IsInstanceOfType(obj);
 			}
 		}
 
@@ -805,7 +810,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 		}
 
 		[Test]
-		public void VInterop_TestAutoregisterPolicyWithDualInterfaces()
+		public void VInterop_DualInterfaces()
 		{
 			string script = @"return myobj:Test1() .. myobj:Test2()";
 

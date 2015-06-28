@@ -28,6 +28,10 @@ namespace MoonSharp.Interpreter.Tests
 	public class TestRunner
 	{
 		Action<TestResult> loggerAction;
+		public int Ok = 0;
+		public int Fail = 0;
+		public int Total = 0;
+		public int Skipped = 0;
 
 		public static bool IsRunning { get; private set; }
 
@@ -42,19 +46,19 @@ namespace MoonSharp.Interpreter.Tests
 			Console_WriteLine("");
 		}
 
-		public void Test(string whichTest = null)
+		public void Test(string whichTest = null, string[] testsToSkip = null)
 		{
-			foreach (TestResult tr in IterateOnTests(whichTest))
+			foreach (TestResult tr in IterateOnTests(whichTest, testsToSkip))
 				loggerAction(tr);
 		}
 
 
-		public IEnumerable<TestResult> IterateOnTests(string whichTest = null)
+		public IEnumerable<TestResult> IterateOnTests(string whichTest = null, string[] testsToSkip = null)
 		{
-			int ok = 0;
-			int fail = 0;
-			int total = 0;
-			int skipped = 0;
+			HashSet<string> skipList = new HashSet<string>();
+
+			if (testsToSkip != null)
+				skipList.UnionWith(testsToSkip);
 
 			Assembly asm = Assembly.GetExecutingAssembly();
 
@@ -65,18 +69,31 @@ namespace MoonSharp.Interpreter.Tests
 					if (whichTest != null && mi.Name != whichTest)
 						continue;
 
+					if (skipList.Contains(mi.Name))
+					{
+						++Skipped;
+						TestResult trs = new TestResult()
+						{
+							TestName = mi.Name,
+							Message = "skipped (skip-list)",
+							Type = TestResultType.Skipped
+						};
+						yield return trs;
+						continue;
+					}
+
 					TestResult tr = RunTest(t, mi);
 
 					if (tr.Type != TestResultType.Message)
 					{
 						if (tr.Type == TestResultType.Fail)
-							++fail;
+							++Fail;
 						else if (tr.Type == TestResultType.Ok)
-							++ok;
+							++Ok;
 						else
-							++skipped;
+							++Skipped;
 
-						++total;
+						++Total;
 					}
 
 					yield return tr;
@@ -84,7 +101,7 @@ namespace MoonSharp.Interpreter.Tests
 			}
 
 			Console_WriteLine("");
-			Console_WriteLine("OK : {0}/{2}, Failed {1}/{2}, Skipped {3}/{2}", ok, fail, total, skipped);
+			Console_WriteLine("OK : {0}/{2}, Failed {1}/{2}, Skipped {3}/{2}", Ok, Fail, Total, Skipped);
 		}
 
 		private void Console_WriteLine(string message, params object[] args)
