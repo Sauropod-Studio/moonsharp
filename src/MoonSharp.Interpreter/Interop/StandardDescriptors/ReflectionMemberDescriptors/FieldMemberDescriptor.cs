@@ -54,9 +54,9 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="fi">The FieldInfo.</param>
 		/// <param name="accessMode">The <see cref="InteropAccessMode" /></param>
 		/// <returns>A new StandardUserDataFieldDescriptor or null.</returns>
-		public static FieldMemberDescriptor TryCreateIfVisible(FieldInfo fi, InteropAccessMode accessMode)
+		public static FieldMemberDescriptor TryCreateIfVisible(FieldInfo fi, InteropAccessMode accessMode, bool forceVisibility = false)
 		{
-			if (fi.GetVisibilityFromAttributes() ?? fi.IsPublic)
+            if (fi.GetVisibilityFromAttributes() ?? fi.IsPublic || forceVisibility)
 				return new FieldMemberDescriptor(fi, accessMode);
 
 			return null;

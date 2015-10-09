@@ -60,7 +60,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="pi">The PropertyInfo.</param>
 		/// <param name="accessMode">The <see cref="InteropAccessMode" /></param>
 		/// <returns>A new StandardUserDataPropertyDescriptor or null.</returns>
-		public static PropertyMemberDescriptor TryCreateIfVisible(PropertyInfo pi, InteropAccessMode accessMode)
+		public static PropertyMemberDescriptor TryCreateIfVisible(PropertyInfo pi, InteropAccessMode accessMode, bool forceVisibility = false)
 		{
 			MethodInfo getter = pi.GetGetMethod(true);
 			MethodInfo setter = pi.GetSetMethod(true);
@@ -78,8 +78,8 @@ namespace MoonSharp.Interpreter.Interop
 			else 
 			{
 				return PropertyMemberDescriptor.TryCreate(pi, accessMode,
-					(gvisible ?? getter.IsPublic) ? getter : null,
-					(svisible ?? setter.IsPublic) ? setter : null);
+                    (gvisible ?? getter.IsPublic) || forceVisibility ? getter : null,
+                    (svisible ?? setter.IsPublic) || forceVisibility ? setter : null);
 			}
 		}
 
