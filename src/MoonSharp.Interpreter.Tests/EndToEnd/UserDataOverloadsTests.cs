@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using MoonSharp.Interpreter.Interop;
+using MoonSharp.Interpreter.Loaders;
 using NUnit.Framework;
 
 namespace MoonSharp.Interpreter.Tests.EndToEnd
@@ -17,6 +19,13 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 		public static string Method3(this UserDataOverloadsTests.OverloadsTestClass obj)
 		{
 			return "X" + obj.Method1(0.17);
+		}
+	}
+	public static class OverloadsExtMethods2
+	{
+		public static string MethodXXX(this UserDataOverloadsTests.OverloadsTestClass obj, string x, bool b)
+		{
+			return "X!";
 		}
 	}
 
@@ -107,6 +116,27 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 
 		[Test]
+		public void Interop_OutParamInOverloadResolution()
+		{
+			UserData.RegisterType<Dictionary<int, int>>();
+			UserData.RegisterExtensionType(typeof(OverloadsExtMethods));
+
+			try
+			{
+				var lua = new Script();
+				lua.Globals["DictionaryIntInt"] = typeof(Dictionary<int, int>);
+
+				var script = @"local dict = DictionaryIntInt.__new(); local res, v = dict.TryGetValue(0)";
+				lua.DoString(script);
+				lua.DoString(script);
+			}
+			finally
+			{
+				UserData.UnregisterType<Dictionary<int, int>>();
+			}
+		}
+
+		[Test]
 		public void Interop_Overloads_Varargs1()
 		{
 			RunTestOverload("o:methodV('{0}-{1}', 15, true)", "exact:15-True");
@@ -168,6 +198,28 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			RunTestOverload("o:method1('xx', true)", "X1");
 			RunTestOverload("o:method3()", "X3");
+		}
+
+		[Test]
+		public void Interop_Overloads_Twice_ExtMethods1()
+		{
+			UserData.RegisterExtensionType(typeof(OverloadsExtMethods));
+
+			RunTestOverload("o:method1('xx', true)", "X1");
+
+			UserData.RegisterExtensionType(typeof(OverloadsExtMethods2));
+
+			RunTestOverload("o:methodXXX('xx', true)", "X!");
+		}
+
+		[Test]
+		public void Interop_Overloads_Twice_ExtMethods2()
+		{
+			UserData.RegisterExtensionType(typeof(OverloadsExtMethods));
+			UserData.RegisterExtensionType(typeof(OverloadsExtMethods2));
+
+			RunTestOverload("o:method1('xx', true)", "X1");
+			RunTestOverload("o:methodXXX('xx', true)", "X!");
 		}
 
 		[Test]
@@ -264,7 +316,6 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 			Assert.AreEqual(1, result.Tuple[0].Number);
 			Assert.AreEqual(22, result.Tuple[1].Number);
 		}
-
 
 
 

@@ -64,6 +64,26 @@ namespace MoonSharp.Interpreter.Interop
 		}
 
 		/// <summary>
+		/// Gets the Types implemented in the assembly, catching the ReflectionTypeLoadException just in case..
+		/// </summary>
+		/// <param name="asm">The assebly</param>
+		/// <returns></returns>
+		public static Type[] SafeGetTypes(this Assembly asm)
+		{
+			try
+			{
+				return asm.GetTypes();
+			}
+			catch (ReflectionTypeLoadException)
+			{
+				return new Type[0];
+			}
+		}
+
+
+
+
+		/// <summary>
 		/// Gets the name of a conversion method to be exposed to Lua scripts
 		/// </summary>
 		/// <param name="type">The type.</param>
@@ -92,6 +112,52 @@ namespace MoonSharp.Interpreter.Interop
 			foreach (Type it in t.GetInterfaces())
 				yield return it;
 		}
+
+
+		/// <summary>
+		/// Converts the specified name from underscore_case to camelCase.
+		/// </summary>
+		/// <param name="name">The name.</param>
+		/// <returns></returns>
+		public static string Camelify(string name)
+		{
+			StringBuilder sb = new StringBuilder(name.Length);
+
+			bool lastWasUnderscore = false;
+			for (int i = 0; i < name.Length; i++)
+			{
+				if (name[i] == '_' && i != 0)
+				{
+					lastWasUnderscore = true;
+				}
+				else
+				{
+					if (lastWasUnderscore)
+						sb.Append(char.ToUpperInvariant(name[i]));
+					else
+						sb.Append(name[i]);
+
+					lastWasUnderscore = false;
+				}
+			}
+
+			return sb.ToString();
+		}
+
+		/// <summary>
+		/// Converts the specified name to one with an uppercase first letter (something to Something).
+		/// </summary>
+		/// <param name="name">The name.</param>
+		/// <returns></returns>
+		public static string UpperFirstLetter(string name)
+		{
+			if (!string.IsNullOrEmpty(name))
+				return char.ToUpperInvariant(name[0]) + name.Substring(1);
+
+			return name;
+		}
+
+
 
 
 	}

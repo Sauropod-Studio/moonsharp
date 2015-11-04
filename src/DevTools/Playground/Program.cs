@@ -2,78 +2,129 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Interop;
 
 namespace Playground
 {
-	class MyDictionaryDescriptor : StandardUserDataDescriptor
+	public class ScriptSharedVars : IUserDataType
 	{
-		public MyDictionaryDescriptor(Type type)
-			: base(type, InteropAccessMode.Default)
-		{ }
+		Dictionary<string, DynValue> m_Values = new Dictionary<string, DynValue>();
+		object m_Lock = new object();
 
-		public override DynValue Index(Script script, object obj, DynValue index, bool isDirectIndexing)
+		public object this[string property]
 		{
-			if (isDirectIndexing)
-			{
-				string key = index.String;
-
-				if (key.StartsWith("_"))
-					index = DynValue.NewString(key.Substring(1));
-				else
-					isDirectIndexing = false;
-			}
-
-			return base.Index(script, obj, index, isDirectIndexing);
+			get { return m_Values[property].ToObject(); }
+			set { m_Values[property] = DynValue.FromObject(null, value); }
 		}
 
-		public override bool SetIndex(Script script, object obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
 		{
-			if (isDirectIndexing)
+			if (index.Type != DataType.String)
+				throw new ScriptRuntimeException("string property was expected");
+
+			lock (m_Lock)
 			{
-				string key = index.String;
-
-				if (key.StartsWith("_"))
-					index = DynValue.NewString(key.Substring(1));
+				if (m_Values.ContainsKey(index.String))
+					return m_Values[index.String].Clone();
 				else
-					isDirectIndexing = false;
+					return DynValue.Nil;
 			}
-
-			return base.SetIndex(script, obj, index, value, isDirectIndexing);
 		}
 
+		public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)
+		{
+			if (index.Type != DataType.String)
+				throw new ScriptRuntimeException("string property was expected");
+
+			lock (m_Lock)
+			{
+				switch (value.Type)
+				{
+					case DataType.Void:
+					case DataType.Nil:
+						m_Values.Remove(index.String);
+						return true;
+					case DataType.UserData:
+						// HERE YOU CAN CHOOSE A DIFFERENT POLICY.. AND TRY TO SHARE IF NEEDED. DANGEROUS, THOUGH.
+						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
+					case DataType.ClrFunction:
+						// HERE YOU CAN CHOOSE A DIFFERENT POLICY.. AND TRY TO SHARE IF NEEDED. DANGEROUS, THOUGH.
+						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
+					case DataType.Boolean:
+					case DataType.Number:
+					case DataType.String:
+						m_Values[index.String] = value.Clone();
+						return true;
+					case DataType.Function:
+					case DataType.Table:
+					case DataType.Tuple:
+					case DataType.Thread:
+					case DataType.TailCallRequest:
+					case DataType.YieldRequest:
+					default:
+						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
+				}
+			}
+		}
+
+		public DynValue MetaIndex(Script script, string metaname)
+		{
+			return null;
+		}
 	}
 
-
+	
 	class Program
 	{
 		static void Main(string[] args)
 		{
-			Dictionary<string, int> dic = new Dictionary<string, int>();
+			UserData.RegisterType<ScriptSharedVars>();
 
-			dic["hp"] = 33;
+			ScriptSharedVars sharedVars = new ScriptSharedVars();
 
-			UserData.RegisterType<Dictionary<string, int>>(new MyDictionaryDescriptor(typeof(Dictionary<string, int>)));
+			sharedVars["mystring"] = "let's go:";
 
-			Script s = new Script();
+			ManualResetEvent ev = new ManualResetEvent(false);
 
-			s.Globals["dic"] = dic;
-			try
-			{
-				s.DoString("print(dic['hp'])");
-				s.DoString("print(dic.hp)");
-				s.DoString("print(dic._count)");
-			}
-			catch (ScriptRuntimeException ex)
-			{
-				Console.ForegroundColor = ConsoleColor.Red;
-				Console.WriteLine(ex.DecoratedMessage);
-			}
+			StartScriptThread(sharedVars, "bum ", ev);
+			StartScriptThread(sharedVars, "chack ", ev);
+
+			ev.Set();
+
+			Thread.Sleep(2000); // too bored to do proper synchronization at this time of the evening...
+
+			Console.WriteLine("{0}", sharedVars["mystring"]);
+
 			Console.ReadKey();
-
-
 		}
+
+		private static void StartScriptThread(ScriptSharedVars sharedVars, string somestr, ManualResetEvent ev)
+		{
+			Thread T = new Thread((ThreadStart)delegate
+			{
+				string script = @"
+				for i = 1, 1000 do
+					shared.mystring = shared.mystring .. somestring;
+				end
+			";
+
+				Script S = new Script();
+
+				S.Globals["shared"] = sharedVars;
+				S.Globals["somestring"] = somestr;
+
+				ev.WaitOne();
+
+				S.DoString(script);
+			});
+
+			T.IsBackground = true;
+			T.Name = "Lua script for " + somestr;
+			T.Start();
+		}
+
 	}
 }

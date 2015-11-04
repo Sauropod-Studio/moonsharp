@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using MoonSharp.Interpreter.Loaders;
+using MoonSharp.Interpreter.Interop;
 
 namespace MoonSharp.Interpreter.Platforms
 {
@@ -42,6 +43,10 @@ namespace MoonSharp.Interpreter.Platforms
 			// We do a lazy eval here, so we can wire out this code by not calling it, if necessary..
 			get
 			{
+#if UNITY_WEBGL
+				return false;
+#else
+
 				if (!m_IsRunningOnAOT.HasValue)
 				{
 					try
@@ -58,6 +63,7 @@ namespace MoonSharp.Interpreter.Platforms
 				}
 
 				return m_IsRunningOnAOT.Value;
+#endif
 			}
 		}
 
@@ -70,7 +76,7 @@ namespace MoonSharp.Interpreter.Platforms
 #else
 			IsRunningOnUnity = AppDomain.CurrentDomain
 				.GetAssemblies()
-				.SelectMany(a => a.GetTypes())
+				.SelectMany(a => a.SafeGetTypes())
 				.Any(t => t.FullName.StartsWith("UnityEngine."));
 #endif
 
