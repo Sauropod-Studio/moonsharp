@@ -4,20 +4,16 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
-using MoonSharp.Interpreter;
 using MoonSharp.Interpreter.Diagnostics;
-using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
-using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter.Interop
 {
 	/// <summary>
 	/// Class providing easier marshalling of CLR functions
 	/// </summary>
-	public class MethodMemberDescriptor : FunctionMemberDescriptorBase, IOptimizableDescriptor
+	public class MethodMemberDescriptor : FunctionMemberDescriptorBase, IOptimizableDescriptor, IWireableDescriptor
 	{
 		/// <summary>
 		/// Gets the method information (can be a MethodInfo or ConstructorInfo)
@@ -36,6 +32,7 @@ namespace MoonSharp.Interpreter.Interop
 		private Func<object, object[], object> m_OptimizedFunc = null;
 		private Action<object, object[]> m_OptimizedAction = null;
 		private bool m_IsAction = false;
+		private bool m_IsArrayCtor = false;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MethodMemberDescriptor"/> class.
@@ -58,8 +55,25 @@ namespace MoonSharp.Interpreter.Interop
 				m_IsAction = ((MethodInfo)methodBase).ReturnType == typeof(void);
 
 			ParameterInfo[] reflectionParams = methodBase.GetParameters();
-			ParameterDescriptor[] parameters = reflectionParams.Select(pi => new ParameterDescriptor(pi)).ToArray();
+			ParameterDescriptor[] parameters;
+			
+			if (this.MethodInfo.DeclaringType.IsArray)
+			{
+				m_IsArrayCtor = true;
 
+				int rank = this.MethodInfo.DeclaringType.GetArrayRank();
+
+				parameters = new ParameterDescriptor[rank];
+
+				for (int i = 0; i < rank; i++)
+					parameters[i] = new ParameterDescriptor("idx" + i.ToString(), typeof(int));
+			}
+			else
+			{
+				parameters = reflectionParams.Select(pi => new ParameterDescriptor(pi)).ToArray();
+			}
+		
+			
 			bool isExtensionMethod = (methodBase.IsStatic && parameters.Length > 0 && methodBase.GetCustomAttributes(typeof(ExtensionAttribute), false).Any());
 
 			base.Initialize(methodBase.Name, isStatic, parameters, isExtensionMethod);
@@ -259,5 +273,46 @@ namespace MoonSharp.Interpreter.Interop
 			}
 		}
 
+
+		/// <summary>
+		/// Prepares the descriptor for hard-wiring.
+		/// The descriptor fills the passed table with all the needed data for hardwire generators to generate the appropriate code.
+		/// </summary>
+		/// <param name="t">The table to be filled</param>
+		public void PrepareForWiring(Table t)
+		{
+			t.Set("class", DynValue.NewString(this.GetType().FullName));
+			t.Set("name", DynValue.NewString(this.Name));
+			t.Set("ctor", DynValue.NewBoolean(this.IsConstructor));
+			t.Set("special", DynValue.NewBoolean(this.MethodInfo.IsSpecialName));
+			t.Set("visibility", DynValue.NewString(this.MethodInfo.GetClrVisibility()));
+
+			if (this.IsConstructor)
+				t.Set("ret", DynValue.NewString(((ConstructorInfo)this.MethodInfo).DeclaringType.FullName));
+			else
+				t.Set("ret", DynValue.NewString(((MethodInfo)this.MethodInfo).ReturnType.FullName));
+
+			if (m_IsArrayCtor)
+			{
+				t.Set("arraytype", DynValue.NewString(this.MethodInfo.DeclaringType.GetElementType().FullName));
+			}
+
+			t.Set("decltype", DynValue.NewString(this.MethodInfo.DeclaringType.FullName));
+			t.Set("static", DynValue.NewBoolean(this.IsStatic));
+			t.Set("extension", DynValue.NewBoolean(this.ExtensionMethodType != null));
+
+			var pars = DynValue.NewPrimeTable();
+
+			t.Set("params", pars);
+
+			int i = 0; 
+
+			foreach (var p in Parameters)
+			{
+				DynValue pt = DynValue.NewPrimeTable();
+				pars.Table.Set(++i, pt);
+				p.PrepareForWiring(pt.Table);
+			}
+		}
 	}
 }

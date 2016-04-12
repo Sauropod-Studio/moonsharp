@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
+﻿
 namespace MoonSharp.Interpreter.Tree
 {
 	enum TokenType
@@ -69,6 +65,9 @@ namespace MoonSharp.Interpreter.Tree
 		Number_Hex,
 		SemiColon,
 		Invalid,
+
+		Brk_Open_Curly_Shared,
+		Op_Dollar,
 	}
 
 

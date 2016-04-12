@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.Interop;
 using MoonSharp.Interpreter.Loaders;
-using MoonSharp.Interpreter.Platforms;
 
 namespace MoonSharp.Interpreter
 {
@@ -95,7 +90,6 @@ namespace MoonSharp.Interpreter
 		/// you are not calling MoonSharp execution concurrently as it is not supported.
 		/// </summary>
 		public bool CheckThreadAccess { get; set; }
-
 
 	}
 }

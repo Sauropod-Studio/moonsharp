@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Tree.Expressions;
 
@@ -146,7 +143,8 @@ namespace MoonSharp.Interpreter.Tree
 				case TokenType.VarArgs:
 					return new SymbolRefExpression(t, lcontext);
 				case TokenType.Brk_Open_Curly:
-					return new TableConstructor(lcontext);
+				case TokenType.Brk_Open_Curly_Shared:
+					return new TableConstructor(lcontext, t.Type == TokenType.Brk_Open_Curly_Shared);
 				case TokenType.Function:
 					lcontext.Lexer.Next();
 					return new FunctionDefinitionExpression(lcontext, false, false);
@@ -206,6 +204,7 @@ namespace MoonSharp.Interpreter.Tree
 					case TokenType.String:
 					case TokenType.String_Long:
 					case TokenType.Brk_Open_Curly:
+					case TokenType.Brk_Open_Curly_Shared:
 						e = new FunctionCallExpression(lcontext, e, thisCallName);
 						break;
 					default:

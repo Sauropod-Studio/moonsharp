@@ -12,28 +12,113 @@ namespace MoonSharp.Interpreter.Interop
 	public static class DescriptorHelpers
 	{
 		/// <summary>
-		/// Determines whether a 
-		/// <see cref="MoonSharpVisibleAttribute" /> is changing visibility of a member
+		/// Determines whether a
+		/// <see cref="MoonSharpVisibleAttribute" /> or a <see cref="MoonSharpHiddenAttribute" />  is changing visibility of a member
 		/// to scripts.
 		/// </summary>
 		/// <param name="mi">The member to check.</param>
 		/// <returns>
-		/// <c>true</c> if visibility is forced visible, 
+		/// <c>true</c> if visibility is forced visible,
 		/// <c>false</c> if visibility is forced hidden or the specified MemberInfo is null,
 		/// <c>if no attribute was found</c>
 		/// </returns>
+		/// <exception cref="System.InvalidOperationException">If both MoonSharpHiddenAttribute and MoonSharpVisibleAttribute are specified and they convey different messages.</exception>
 		public static bool? GetVisibilityFromAttributes(this MemberInfo mi)
 		{
 			if (mi == null)
 				return false;
 
 			MoonSharpVisibleAttribute va = mi.GetCustomAttributes(true).OfType<MoonSharpVisibleAttribute>().SingleOrDefault();
+			MoonSharpHiddenAttribute ha = mi.GetCustomAttributes(true).OfType<MoonSharpHiddenAttribute>().SingleOrDefault();
 
-			if (va != null)
+			if (va != null && ha != null && va.Visible)
+				throw new InvalidOperationException(string.Format("A member ('{0}') can't have discording MoonSharpHiddenAttribute and MoonSharpVisibleAttribute.", mi.Name));
+			else if (ha != null)
+				return false;
+			else if (va != null)
 				return va.Visible;
 			else
 				return null;
 		}
+
+
+		/// <summary>
+		/// Gets the visibility of the type as a string
+		/// </summary>
+		public static string GetClrVisibility(this Type t)
+		{
+			if (t.IsPublic || t.IsNestedPublic)
+				return "public";
+			if ((t.IsNotPublic && (!t.IsNested)) || (t.IsNestedAssembly))
+				return "internal";
+			if (t.IsNestedFamORAssem)
+				return "protected-internal";
+			if (t.IsNestedFamANDAssem || t.IsNestedFamily)
+				return "protected";
+			if (t.IsNestedPrivate)
+				return "private";
+
+			return "unknown";
+		}
+
+		/// <summary>
+		/// Gets a string representing visibility of the given member type
+		/// </summary>
+		public static string GetClrVisibility(this FieldInfo info)
+		{
+			if (info.IsPublic)
+				return "public";
+			if (info.IsAssembly)
+				return "internal";
+			if (info.IsFamilyOrAssembly)
+				return "protected-internal";
+			if (info.IsFamilyAndAssembly || info.IsFamily)
+				return "protected";
+			if (info.IsPrivate)
+				return "private";
+
+			return "unknown";
+		}
+
+		/// <summary>
+		/// Gets a string representing visibility of the given member type
+		/// </summary>
+		public static string GetClrVisibility(this PropertyInfo info)
+		{
+			MethodInfo gm = info.GetGetMethod(true);
+			MethodInfo sm = info.GetSetMethod(true);
+
+			string gv = (gm != null) ? GetClrVisibility(gm) : "private";
+			string sv = (sm != null) ? GetClrVisibility(sm) : "private";
+
+			if (gv == "public" || sv == "public")
+				return "public";
+			else if (gv == "internal" || sv == "internal")
+				return "internal";
+			else
+				return gv;
+		}
+
+		/// <summary>
+		/// Gets a string representing visibility of the given member type
+		/// </summary>
+		public static string GetClrVisibility(this MethodBase info)
+		{
+			if (info.IsPublic)
+				return "public";
+			if (info.IsAssembly)
+				return "internal";
+			if (info.IsFamilyOrAssembly)
+				return "protected-internal";
+			if (info.IsFamilyAndAssembly || info.IsFamily)
+				return "protected";
+			if (info.IsPrivate)
+				return "private";
+
+			return "unknown";
+		}
+
+
 
 
 		/// <summary>
@@ -113,6 +198,46 @@ namespace MoonSharp.Interpreter.Interop
 				yield return it;
 		}
 
+
+		/// <summary>
+		/// Determines whether the string is a valid simple identifier (starts with letter or underscore
+		/// and contains only letters, digits and underscores).
+		/// </summary>
+		public static bool IsValidSimpleIdentifier(string str)
+		{
+			if (string.IsNullOrEmpty(str))
+				return false;
+
+			if (str[0] != '_' && !char.IsLetter(str[0]))
+				return false;
+
+			for (int i = 1; i < str.Length; i++)
+				if (str[i] != '_' && !char.IsLetterOrDigit(str[i]))
+					return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Converts the string to a valid simple identifier (starts with letter or underscore
+		/// and contains only letters, digits and underscores).
+		/// </summary>
+		public static string ToValidSimpleIdentifier(string str)
+		{
+			if (string.IsNullOrEmpty(str))
+				return "_";
+
+			if (str[0] != '_' && !char.IsLetter(str[0]))
+				str = "_" + str;
+
+			StringBuilder sb = new StringBuilder(str);
+
+			for (int i = 0; i < sb.Length; i++)
+				if (sb[i] != '_' && !char.IsLetterOrDigit(sb[i]))
+					sb[i] = '_';
+
+			return sb.ToString();
+		}
 
 		/// <summary>
 		/// Converts the specified name from underscore_case to camelCase.

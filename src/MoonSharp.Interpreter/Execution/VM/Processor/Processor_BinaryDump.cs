@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.IO;
 
@@ -13,7 +11,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 	sealed partial class Processor
 	{
 		const ulong DUMP_CHUNK_MAGIC = 0x1A0D234E4F4F4D1D;
-		const int DUMP_CHUNK_VERSION = 0x902;
+		const int DUMP_CHUNK_VERSION = 0x150;
 
 		internal static bool IsDumpStream(Stream stream)
 		{
@@ -31,16 +29,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 			{
 				Dictionary<SymbolRef, int> symbolMap = new Dictionary<SymbolRef, int>();
 
-				Instruction meta = m_RootChunk.Code[baseAddress];
+				Instruction meta = FindMeta(ref baseAddress);
 
-				// skip nops
-				while (meta.OpCode == OpCode.Nop)
-				{
-					baseAddress++;
-					meta = m_RootChunk.Code[baseAddress];
-				}
-
-				if (meta.OpCode != OpCode.FuncMeta)
+				if (meta == null)
 					throw new ArgumentException("baseAddress");
 
 				bw.Write(DUMP_CHUNK_MAGIC);

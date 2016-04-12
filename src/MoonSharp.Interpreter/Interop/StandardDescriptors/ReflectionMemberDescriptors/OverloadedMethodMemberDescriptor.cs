@@ -1,9 +1,8 @@
-﻿#define DEBUG_OVERLOAD_RESOLVER
+﻿//#define DEBUG_OVERLOAD_RESOLVER
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.Converters;
 
@@ -12,7 +11,7 @@ namespace MoonSharp.Interpreter.Interop
 	/// <summary>
 	/// Class providing easier marshalling of overloaded CLR functions
 	/// </summary>
-	public class OverloadedMethodMemberDescriptor : IOptimizableDescriptor, IMemberDescriptor
+	public class OverloadedMethodMemberDescriptor : IOptimizableDescriptor, IMemberDescriptor, IWireableDescriptor
 	{
 		/// <summary>
 		/// Comparer class for IOverloadableMemberDescriptor
@@ -340,7 +339,7 @@ namespace MoonSharp.Interpreter.Interop
 
 						varargCnt += 1;
 
-						int score = CalcScoreForSingleArgument(method.VarArgsElementType, arg, isOptional: false);
+						int score = CalcScoreForSingleArgument(method.Parameters[i], method.VarArgsElementType, arg, isOptional: false);
 						totalScore = Math.Min(totalScore, score);
 					}
 
@@ -367,7 +366,7 @@ namespace MoonSharp.Interpreter.Interop
 				{
 					var arg = args.RawGet(argsCnt, false) ?? DynValue.Void;
 
-					int score = CalcScoreForSingleArgument(parameterType, arg, method.Parameters[i].HasDefaultValue);
+					int score = CalcScoreForSingleArgument(method.Parameters[i], parameterType, arg, method.Parameters[i].HasDefaultValue);
 
 					totalScore = Math.Min(totalScore, score);
 
@@ -401,12 +400,12 @@ namespace MoonSharp.Interpreter.Interop
 			return totalScore;
 		}
 
-		private static int CalcScoreForSingleArgument(Type parameterType, DynValue arg, bool isOptional)
+		private static int CalcScoreForSingleArgument(ParameterDescriptor desc, Type parameterType, DynValue arg, bool isOptional)
 		{
 			int score = ScriptToClrConversions.DynValueToObjectOfTypeWeight(arg,
 				parameterType, isOptional);
 
-			if (parameterType.IsByRef)
+			if (parameterType.IsByRef || desc.IsOut || desc.IsRef)
 				score = Math.Max(0, score + ScriptToClrConversions.WEIGHT_BYREF_BONUSMALUS);
 
 			return score;
@@ -483,6 +482,38 @@ namespace MoonSharp.Interpreter.Interop
 		public void SetValue(Script script, object obj, DynValue value)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanWrite, obj);
+		}
+
+		/// <summary>
+		/// Prepares the descriptor for hard-wiring.
+		/// The descriptor fills the passed table with all the needed data for hardwire generators to generate the appropriate code.
+		/// </summary>
+		/// <param name="t">The table to be filled</param>
+		public void PrepareForWiring(Table t)
+		{
+			t.Set("class", DynValue.NewString(this.GetType().FullName));
+			t.Set("name", DynValue.NewString(this.Name));
+			t.Set("decltype", DynValue.NewString(this.DeclaringType.FullName));
+			DynValue mst = DynValue.NewPrimeTable();
+			t.Set("overloads", mst);
+
+			int i = 0;
+
+			foreach (var m in this.m_Overloads)
+			{
+				IWireableDescriptor sd = m as IWireableDescriptor;
+
+				if (sd != null)
+				{
+					DynValue mt = DynValue.NewPrimeTable();
+					mst.Table.Set(++i, mt);
+					sd.PrepareForWiring(mt.Table);
+				}
+				else
+				{
+					mst.Table.Set(++i, DynValue.NewString(string.Format("unsupported - {0} is not serializable", m.GetType().FullName)));
+				}
+			}
 		}
 	}
 }

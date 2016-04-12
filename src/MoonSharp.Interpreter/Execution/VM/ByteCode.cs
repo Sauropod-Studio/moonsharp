@@ -4,10 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Debugging;
 
 namespace MoonSharp.Interpreter.Execution.VM
@@ -204,9 +201,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 			return AppendInstruction(new Instruction(m_CurrentSourceRef) { OpCode = OpCode.Incr, NumVal = i });
 		}
 
-		public Instruction Emit_NewTable()
+		public Instruction Emit_NewTable(bool shared)
 		{
-			return AppendInstruction(new Instruction(m_CurrentSourceRef) { OpCode = OpCode.NewTable });
+			return AppendInstruction(new Instruction(m_CurrentSourceRef) { OpCode = OpCode.NewTable, NumVal = shared ? 1 : 0 });
 		}
 
 		public Instruction Emit_IterPrep()
@@ -224,12 +221,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 			return AppendInstruction(new Instruction(m_CurrentSourceRef) { OpCode = OpCode.IterUpd });
 		}
 
-		public Instruction Emit_FuncMeta(string funcName)
+		public Instruction Emit_Meta(string funcName, OpCodeMetadataType metaType, DynValue value = null)
 		{
 			return AppendInstruction(new Instruction(m_CurrentSourceRef)
 			{
-				OpCode = OpCode.FuncMeta,
-				Name = funcName
+				OpCode = OpCode.Meta,
+				Name = funcName,
+				NumVal2 = (int)metaType,
+				Value = value
 			});
 		}
 

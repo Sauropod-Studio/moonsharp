@@ -3,20 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
-using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
+using MoonSharp.Interpreter.Interop.RegistrationPolicies;
 
 namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 {
 	/// <summary>
 	/// Registry of all type descriptors. Use UserData statics to access these.
 	/// </summary>
-	internal class TypeDescriptorRegistry
+	internal static class TypeDescriptorRegistry
 	{
 		private static object s_Lock = new object();
-		private static Dictionary<Type, IUserDataDescriptor> s_Registry = new Dictionary<Type, IUserDataDescriptor>();
+		private static Dictionary<Type, IUserDataDescriptor> s_TypeRegistry = new Dictionary<Type, IUserDataDescriptor>();
+		private static Dictionary<Type, IUserDataDescriptor> s_TypeRegistryHistory = new Dictionary<Type, IUserDataDescriptor>();
 		private static InteropAccessMode s_DefaultAccessMode;
 
 		/// <summary>
@@ -67,7 +67,7 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 		internal static bool IsTypeRegistered(Type type)
 		{
 			lock (s_Lock)
-				return s_Registry.ContainsKey(type);
+				return s_TypeRegistry.ContainsKey(type);
 		}
 
 
@@ -82,8 +82,10 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 		{
 			lock (s_Lock)
 			{
-				if (s_Registry.ContainsKey(t))
-					s_Registry.Remove(t);
+				if (s_TypeRegistry.ContainsKey(t))
+				{
+					PerformRegistration(t, null, s_TypeRegistry[t]);
+				}
 			}
 		}
 
@@ -107,9 +109,17 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 		}
 
 		/// <summary>
-		/// Gets or sets the registration policy to be used in the whole application
+		/// Registers a proxy type.
 		/// </summary>
-		internal static InteropRegistrationPolicy RegistrationPolicy { get; set; }
+		/// <param name="proxyFactory">The proxy factory.</param>
+		/// <param name="accessMode">The access mode.</param>
+		/// <param name="friendlyName">Name of the friendly.</param>
+		/// <returns></returns>
+		internal static IUserDataDescriptor RegisterProxyType_Impl(IProxyFactory proxyFactory, InteropAccessMode accessMode, string friendlyName)
+		{
+			IUserDataDescriptor proxyDescriptor = RegisterType_Impl(proxyFactory.ProxyType, accessMode, friendlyName, null);
+			return RegisterType_Impl(proxyFactory.TargetType, accessMode, friendlyName, new ProxyUserDataDescriptor(proxyFactory, proxyDescriptor, friendlyName));
+		}
 
 
 		/// <summary>
@@ -121,6 +131,81 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 		/// <param name="descriptor">The descriptor, or null to use a default one.</param>
 		/// <returns></returns>
 		internal static IUserDataDescriptor RegisterType_Impl(Type type, InteropAccessMode accessMode, string friendlyName, IUserDataDescriptor descriptor)
+		{
+			accessMode = ResolveDefaultAccessModeForType(accessMode, type);
+
+			lock (s_Lock)
+			{
+				IUserDataDescriptor oldDescriptor = null;
+				s_TypeRegistry.TryGetValue(type, out oldDescriptor);
+
+					if (descriptor == null)
+					{
+						if (IsTypeBlacklisted(type))
+							return null;
+
+						if (type.GetInterfaces().Any(ii => ii == typeof(IUserDataType)))
+						{
+							AutoDescribingUserDataDescriptor audd = new AutoDescribingUserDataDescriptor(type, friendlyName);
+							return PerformRegistration(type, audd, oldDescriptor);
+						}
+						else if (type.IsGenericTypeDefinition)
+						{
+							StandardGenericsUserDataDescriptor typeGen = new StandardGenericsUserDataDescriptor(type, accessMode);
+							return PerformRegistration(type, typeGen, oldDescriptor);
+						}
+						else if (type.IsEnum)
+						{
+							var enumDescr = new StandardEnumUserDataDescriptor(type, friendlyName);
+							return PerformRegistration(type, enumDescr, oldDescriptor);
+						}
+						else
+						{
+							StandardUserDataDescriptor udd = new StandardUserDataDescriptor(type, accessMode, friendlyName);
+
+							if (accessMode == InteropAccessMode.BackgroundOptimized)
+							{
+								ThreadPool.QueueUserWorkItem(o => ((IOptimizableDescriptor)udd).Optimize());
+							}
+
+							return PerformRegistration(type, udd, oldDescriptor);
+						}
+					}
+					else
+					{
+						PerformRegistration(type, descriptor, oldDescriptor);
+						return descriptor;
+					}
+			}
+		}
+
+		private static IUserDataDescriptor PerformRegistration(Type type, IUserDataDescriptor newDescriptor, IUserDataDescriptor oldDescriptor)
+		{
+			IUserDataDescriptor result = RegistrationPolicy.HandleRegistration(newDescriptor, oldDescriptor);
+
+			if (result != oldDescriptor)
+			{
+				if (result == null)
+				{
+					s_TypeRegistry.Remove(type);
+				}
+				else
+				{
+					s_TypeRegistry[type] = result;
+					s_TypeRegistryHistory[type] = result;
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Resolves the default type of the access mode for the given type
+		/// </summary>
+		/// <param name="accessMode">The access mode.</param>
+		/// <param name="type">The type.</param>
+		/// <returns></returns>
+		internal static InteropAccessMode ResolveDefaultAccessModeForType(InteropAccessMode accessMode, Type type)
 		{
 			if (accessMode == InteropAccessMode.Default)
 			{
@@ -135,54 +220,7 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 			if (accessMode == InteropAccessMode.Default)
 				accessMode = s_DefaultAccessMode;
 
-			lock (s_Lock)
-			{
-				if (!s_Registry.ContainsKey(type))
-				{
-					if (descriptor == null)
-					{
-						if (IsTypeBlacklisted(type))
-							return null;
-
-						if (type.GetInterfaces().Any(ii => ii == typeof(IUserDataType)))
-						{
-							AutoDescribingUserDataDescriptor audd = new AutoDescribingUserDataDescriptor(type, friendlyName);
-							s_Registry.Add(type, audd);
-							return audd;
-						}
-						else if (type.IsGenericTypeDefinition)
-						{
-							StandardGenericsUserDataDescriptor typeGen = new StandardGenericsUserDataDescriptor(type, accessMode);
-							s_Registry.Add(type, typeGen);
-							return typeGen;
-						}
-						else if (type.IsEnum)
-						{
-							var enumDescr = new StandardEnumUserDataDescriptor(type, friendlyName);
-							s_Registry.Add(type, enumDescr);
-							return enumDescr;
-						}
-						else
-						{
-							StandardUserDataDescriptor udd = new StandardUserDataDescriptor(type, accessMode, friendlyName);
-							s_Registry.Add(type, udd);
-
-							if (accessMode == InteropAccessMode.BackgroundOptimized)
-							{
-								ThreadPool.QueueUserWorkItem(o => ((IOptimizableDescriptor)udd).Optimize());
-							}
-
-							return udd;
-						}
-					}
-					else
-					{
-						s_Registry.Add(type, descriptor);
-						return descriptor;
-					}
-				}
-				else return s_Registry[type];
-			}
+			return accessMode;
 		}
 
 
@@ -200,10 +238,10 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 				IUserDataDescriptor typeDescriptor = null;
 
 				// if the type has been explicitly registered, return its descriptor as it's complete
-				if (s_Registry.ContainsKey(type))
-					return s_Registry[type];
+				if (s_TypeRegistry.ContainsKey(type))
+					return s_TypeRegistry[type];
 
-				if (RegistrationPolicy == InteropRegistrationPolicy.Automatic)
+				if (RegistrationPolicy.AllowTypeAutoRegistration(type))
 				{
 					// no autoreg of delegates
 					if (!(typeof(Delegate)).IsAssignableFrom(type))
@@ -217,14 +255,14 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 				{
 					IUserDataDescriptor u;
 
-					if (s_Registry.TryGetValue(t, out u))
+					if (s_TypeRegistry.TryGetValue(t, out u))
 					{
 						typeDescriptor = u;
 						break;
 					}
 					else if (t.IsGenericType)
 					{
-						if (s_Registry.TryGetValue(t.GetGenericTypeDefinition(), out u))
+						if (s_TypeRegistry.TryGetValue(t.GetGenericTypeDefinition(), out u))
 						{
 							typeDescriptor = u;
 							break;
@@ -252,7 +290,7 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 					{
 						IUserDataDescriptor interfaceDescriptor;
 
-						if (s_Registry.TryGetValue(interfaceType, out interfaceDescriptor))
+						if (s_TypeRegistry.TryGetValue(interfaceType, out interfaceDescriptor))
 						{
 							if (interfaceDescriptor is IGeneratorUserDataDescriptor)
 								interfaceDescriptor = ((IGeneratorUserDataDescriptor)interfaceDescriptor).Generate(type);
@@ -262,7 +300,7 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 						}
 						else if (interfaceType.IsGenericType)
 						{
-							if (s_Registry.TryGetValue(interfaceType.GetGenericTypeDefinition(), out interfaceDescriptor))
+							if (s_TypeRegistry.TryGetValue(interfaceType.GetGenericTypeDefinition(), out interfaceDescriptor))
 							{
 								if (interfaceDescriptor is IGeneratorUserDataDescriptor)
 									interfaceDescriptor = ((IGeneratorUserDataDescriptor)interfaceDescriptor).Generate(type);
@@ -299,6 +337,34 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 
 			return false;
 		}
+
+		/// <summary>
+		/// Gets the list of registered types.
+		/// </summary>
+		/// <value>
+		/// The registered types.
+		/// </value>
+		public static IEnumerable<KeyValuePair<Type, IUserDataDescriptor>> RegisteredTypes
+		{
+			get { lock (s_Lock) return s_TypeRegistry.ToArray(); }
+		}
+
+		/// <summary>
+		/// Gets the list of registered types, including unregistered types.
+		/// </summary>
+		/// <value>
+		/// The registered types.
+		/// </value>
+		public static IEnumerable<KeyValuePair<Type, IUserDataDescriptor>> RegisteredTypesHistory
+		{
+			get { lock (s_Lock) return s_TypeRegistryHistory.ToArray(); }
+		}
+
+
+		/// <summary>
+		/// Gets or sets the registration policy.
+		/// </summary>
+		internal static IRegistrationPolicy RegistrationPolicy { get; set; }
 
 
 	}

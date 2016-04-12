@@ -2,7 +2,7 @@
 using MoonSharp.Interpreter.Execution;
 using NUnit.Framework;
 
-namespace MoonSharp.Interpreter.Tests
+namespace MoonSharp.Interpreter.Tests.EndToEnd
 {
 	[TestFixture]
 	public class ClosureTests
@@ -287,6 +287,40 @@ return g(|x,y|f(x,y,1), 2)
 			Assert.AreEqual(DataType.Number, res.Type);
 			Assert.AreEqual(10, res.Number);
 		}
+
+
+		[Test]
+		public void LocalRedefinition()
+		{
+			string script = @"
+
+				result = ''
+
+				local hi = 'hello'
+
+				local function test()
+					result = result .. hi;
+				end
+
+				test();
+
+				hi = 'X'
+
+				test();
+
+				local hi = '!';
+
+				test();
+
+				return result;
+								";
+
+			DynValue res = new Script(CoreModules.Preset_HardSandbox).DoString(script);
+
+			Assert.AreEqual(DataType.String, res.Type);
+			Assert.AreEqual("helloXX", res.String);
+		}
+
 
 	}
 }

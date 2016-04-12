@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
 namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 {
 	/// <summary>
 	/// Descriptor of parameters used in <see cref="IOverloadableMemberDescriptor"/> implementations.
 	/// </summary>
-	public sealed class ParameterDescriptor
+	public sealed class ParameterDescriptor : IWireableDescriptor
 	{
 		/// <summary>
 		/// Gets the name of the parameter
@@ -77,6 +75,35 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		}
 
 		/// <summary>
+		/// Initializes a new instance of the <see cref="ParameterDescriptor" /> class. 
+		/// </summary>
+		/// <param name="name">The name.</param>
+		/// <param name="type">The type.</param>
+		/// <param name="hasDefaultValue">if set to <c>true</c> the parameter has default value.</param>
+		/// <param name="defaultValue">The default value.</param>
+		/// <param name="isOut">if set to <c>true</c>, is an out param.</param>
+		/// <param name="isRef">if set to <c>true</c> is a ref param.</param>
+		/// <param name="isVarArgs">if set to <c>true</c> is variable arguments param.</param>
+		/// <param name="typeRestriction">The type restriction, or nll.</param>
+		public ParameterDescriptor(string name, Type type, bool hasDefaultValue, object defaultValue, bool isOut,
+			bool isRef, bool isVarArgs, Type typeRestriction)
+		{
+			Name = name;
+			Type = type;
+			HasDefaultValue = hasDefaultValue;
+			DefaultValue = defaultValue;
+			IsOut = isOut;
+			IsRef = isRef;
+			IsVarArgs = isVarArgs;
+
+			if (typeRestriction != null)
+			{
+				RestrictType(typeRestriction);
+			}
+		}
+		
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="ParameterDescriptor"/> class.
 		/// </summary>
 		/// <param name="pi">A ParameterInfo taken from reflection.</param>
@@ -126,5 +153,31 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 			Type = type;
 		}
 
+
+		/// <summary>
+		/// Prepares the descriptor for hard-wiring.
+		/// The descriptor fills the passed table with all the needed data for hardwire generators to generate the appropriate code.
+		/// </summary>
+		/// <param name="t">The table to be filled</param>
+		public void PrepareForWiring(Table table)
+		{
+			table.Set("name", DynValue.NewString(Name));
+
+			if (Type.IsByRef)
+				table.Set("type", DynValue.NewString(Type.GetElementType().FullName));
+			else
+				table.Set("type", DynValue.NewString(Type.FullName));
+
+			if (OriginalType.IsByRef)
+				table.Set("origtype", DynValue.NewString(OriginalType.GetElementType().FullName));
+			else
+				table.Set("origtype", DynValue.NewString(OriginalType.FullName));
+
+			table.Set("default", DynValue.NewBoolean(HasDefaultValue));
+			table.Set("out", DynValue.NewBoolean(IsOut));
+			table.Set("ref", DynValue.NewBoolean(IsRef));
+			table.Set("varargs", DynValue.NewBoolean(IsVarArgs));
+			table.Set("restricted", DynValue.NewBoolean(HasBeenRestricted));
+		}
 	}
 }

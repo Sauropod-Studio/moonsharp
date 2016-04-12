@@ -1,8 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Text;
+using MoonSharp.Interpreter.Interop.RegistrationPolicies;
 
 namespace MoonSharp.Interpreter.Interop.Converters
 {
@@ -24,7 +23,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			var converter = Script.GlobalOptions.CustomConverters.GetClrToScriptCustomConversion(obj.GetType());
 			if (converter != null)
 			{
-				var v = converter(obj);
+				var v = converter(script, obj);
 				if (v != null)
 					return v;
 			}

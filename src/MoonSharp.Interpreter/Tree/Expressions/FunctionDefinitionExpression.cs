@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Execution.VM;
@@ -19,25 +17,25 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 		bool m_HasVarArgs = false;
 		Instruction m_ClosureInstruction = null;
 
-		Table m_GlobalEnv;
+		bool m_UsesGlobalEnv;
 		SymbolRef m_Env;
 
 		SourceRef m_Begin, m_End;
 
 
-		public FunctionDefinitionExpression(ScriptLoadingContext lcontext, Table globalContext)
-			: this(lcontext, false, globalContext, false)
+		public FunctionDefinitionExpression(ScriptLoadingContext lcontext, bool usesGlobalEnv)
+			: this(lcontext, false, usesGlobalEnv, false)
 		{ }
 
 		public FunctionDefinitionExpression(ScriptLoadingContext lcontext, bool pushSelfParam, bool isLambda)
-			: this(lcontext, pushSelfParam, null, isLambda)
+			: this(lcontext, pushSelfParam, false, isLambda)
 		{ }
 
 
-		private FunctionDefinitionExpression(ScriptLoadingContext lcontext, bool pushSelfParam, Table globalContext, bool isLambda)
+		private FunctionDefinitionExpression(ScriptLoadingContext lcontext, bool pushSelfParam, bool usesGlobalEnv, bool isLambda)
 			: base(lcontext)
 		{
-			if (globalContext != null)
+			if (m_UsesGlobalEnv = usesGlobalEnv)
 				CheckTokenType(lcontext, TokenType.Function);
 
 			// here lexer should be at the '(' or at the '|'
@@ -51,10 +49,9 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 			// create scope
 			lcontext.Scope.PushFunction(this, m_HasVarArgs);
 
-			if (globalContext != null)
+			if (m_UsesGlobalEnv)
 			{
-				m_GlobalEnv = globalContext;
-				m_Env = lcontext.Scope.TryDefineLocal(WellKnownSymbols.ENV);
+				m_Env = lcontext.Scope.DefineLocal(WellKnownSymbols.ENV);
 			}
 			else
 			{
@@ -200,7 +197,7 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 
 			Instruction I = bc.Emit_Jump(OpCode.Jump, -1);
 
-			Instruction meta = bc.Emit_FuncMeta(funcName);
+			Instruction meta = bc.Emit_Meta(funcName, OpCodeMetadataType.FunctionEntrypoint);
 			int metaip = bc.GetJumpPointForLastInstruction();
 
 			bc.Emit_BeginFn(m_StackFrame);
@@ -209,9 +206,9 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 
 			int entryPoint = bc.GetJumpPointForLastInstruction();
 
-			if (m_GlobalEnv != null)
+			if (m_UsesGlobalEnv)
 			{
-				bc.Emit_Literal(DynValue.NewTable(m_GlobalEnv));
+				bc.Emit_Load(SymbolRef.Upvalue(WellKnownSymbols.ENV, 0));
 				bc.Emit_Store(m_Env, 0, 0);
 				bc.Emit_Pop();
 			}

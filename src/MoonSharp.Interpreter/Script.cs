@@ -2,20 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.CoreLib;
-using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Diagnostics;
-using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Execution.VM;
-using MoonSharp.Interpreter.Interop;
 using MoonSharp.Interpreter.IO;
 using MoonSharp.Interpreter.Platforms;
-using MoonSharp.Interpreter.Tree;
 using MoonSharp.Interpreter.Tree.Expressions;
 using MoonSharp.Interpreter.Tree.Fast_Interface;
-using MoonSharp.Interpreter.Tree.Statements;
 
 namespace MoonSharp.Interpreter
 {
@@ -28,7 +22,7 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// The version of the MoonSharp engine
 		/// </summary>
-		public const string VERSION = "1.0.0.0"; 
+		public const string VERSION = "1.5.0.0";
 
 		/// <summary>
 		/// The Lua version being supported
@@ -78,8 +72,8 @@ namespace MoonSharp.Interpreter
 			Registry = new Table(this);
 
 			m_ByteCode = new ByteCode(this);
-			m_GlobalTable = new Table(this).RegisterCoreModules(coreModules);
 			m_MainProcessor = new Processor(this, m_GlobalTable, m_ByteCode);
+			m_GlobalTable = new Table(this).RegisterCoreModules(coreModules);
 		}
 
 
@@ -132,12 +126,12 @@ namespace MoonSharp.Interpreter
 
 			m_Sources.Add(source);
 
-			int address = Loader_Fast.LoadFunction(this, source, m_ByteCode, globalTable ?? m_GlobalTable);
+			int address = Loader_Fast.LoadFunction(this, source, m_ByteCode, globalTable != null || m_GlobalTable != null);
 
 			SignalSourceCodeChange(source);
 			SignalByteCodeChange();
 
-			return MakeClosure(address);
+			return MakeClosure(address, globalTable ?? m_GlobalTable);
 		}
 
 		private void SignalByteCodeChange()
@@ -186,13 +180,12 @@ namespace MoonSharp.Interpreter
 
 			int address = Loader_Fast.LoadChunk(this,
 				source,
-				m_ByteCode,
-				globalTable ?? m_GlobalTable);
+				m_ByteCode);
 
 			SignalSourceCodeChange(source);
 			SignalByteCodeChange();
 
-			return MakeClosure(address);
+			return MakeClosure(address, globalTable ?? m_GlobalTable);
 		}
 
 		/// <summary>
@@ -222,7 +215,7 @@ namespace MoonSharp.Interpreter
 			{
 				string chunkName = string.Format("{0}", codeFriendlyName ?? "dump_" + m_Sources.Count.ToString());
 
-				SourceCode source = new SourceCode(codeFriendlyName ?? chunkName, 
+				SourceCode source = new SourceCode(codeFriendlyName ?? chunkName,
 					string.Format("-- This script was decoded from a binary dump - dump_{0}", m_Sources.Count),
 					m_Sources.Count, this);
 
@@ -286,9 +279,9 @@ namespace MoonSharp.Interpreter
 		{
 			this.CheckScriptOwnership(globalContext);
 
-			#pragma warning disable 618
+#pragma warning disable 618
 			filename = Options.ScriptLoader.ResolveFileName(filename, globalContext ?? m_GlobalTable);
-			#pragma warning restore 618
+#pragma warning restore 618
 
 			object code = Options.ScriptLoader.LoadFile(filename, globalContext ?? m_GlobalTable);
 
@@ -298,7 +291,7 @@ namespace MoonSharp.Interpreter
 			}
 			else if (code is byte[])
 			{
-				using(MemoryStream ms = new MemoryStream((byte[])code))
+				using (MemoryStream ms = new MemoryStream((byte[])code))
 					return LoadStream(ms, globalContext, friendlyFilename ?? filename);
 			}
 			else if (code is Stream)
@@ -401,14 +394,28 @@ namespace MoonSharp.Interpreter
 			Closure c;
 
 			if (envTable == null)
-				c = new Closure(this, address, new SymbolRef[0], new DynValue[0]);
+			{
+				Instruction meta = m_MainProcessor.FindMeta(ref address);
+
+				// if we find the meta for a new chunk, we use the value in the meta for the _ENV upvalue
+				if ((meta != null) && (meta.NumVal2 == (int)OpCodeMetadataType.ChunkEntrypoint))
+				{
+					c = new Closure(this, address,
+						new SymbolRef[] { SymbolRef.Upvalue(WellKnownSymbols.ENV, 0) },
+						new DynValue[] { meta.Value });
+				}
+				else
+				{
+					c = new Closure(this, address, new SymbolRef[0], new DynValue[0]);
+				}
+			}
 			else
 			{
-				var syms = new SymbolRef[1] {
+				var syms = new SymbolRef[] {
 					new SymbolRef() { i_Env = null, i_Index= 0, i_Name = WellKnownSymbols.ENV, i_Type =  SymbolRefType.DefaultEnv },
 				};
 
-				var vals = new DynValue[1] {
+				var vals = new DynValue[] {
 					DynValue.NewTable(envTable)
 				};
 
@@ -525,7 +532,7 @@ namespace MoonSharp.Interpreter
 		public DynValue CreateCoroutine(DynValue function)
 		{
 			this.CheckScriptOwnership(function);
-			
+
 			if (function.Type == DataType.Function)
 				return m_MainProcessor.Coroutine_Create(function.Function);
 			else if (function.Type == DataType.ClrFunction)
@@ -545,16 +552,6 @@ namespace MoonSharp.Interpreter
 		public DynValue CreateCoroutine(object function)
 		{
 			return CreateCoroutine(DynValue.FromObject(this, function));
-		}
-
-
-		/// <summary>
-		/// Gets the main chunk function.
-		/// </summary>
-		/// <returns>A DynValue containing a function which executes the first chunk that has been loaded.</returns>
-		public DynValue GetMainChunk()
-		{
-			return MakeClosure(0);
 		}
 
 		/// <summary>
@@ -709,7 +706,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		internal ScriptExecutionContext CreateDynamicExecutionContext(CallbackFunction func = null)
 		{
-			return new ScriptExecutionContext(m_MainProcessor, func, null, isDynamic : true);
+			return new ScriptExecutionContext(m_MainProcessor, func, null, isDynamic: true);
 		}
 
 		/// <summary>
