@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using MoonSharp.Interpreter.Execution;
 
 namespace MoonSharp.Interpreter
@@ -146,7 +142,7 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Gets the value of an upvalue 
+		/// Gets the value of an upvalue. To set the value, use GetUpvalue(idx).Assign(...);
 		/// </summary>
 		/// <param name="idx">The index of the upvalue.</param>
 		/// <returns>The value of an upvalue </returns>

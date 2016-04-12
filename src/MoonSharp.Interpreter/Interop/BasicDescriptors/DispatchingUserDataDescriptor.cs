@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter.Interop.BasicDescriptors
@@ -647,7 +646,6 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		}
 
 		#endregion
-
 
 
 		/// <summary>

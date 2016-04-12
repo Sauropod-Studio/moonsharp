@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.Converters;
 
@@ -10,7 +7,8 @@ namespace MoonSharp.Interpreter.Interop
 	/// <summary>
 	/// Member descriptor for the default constructor of value types.
 	/// </summary>
-	public class ValueTypeDefaultCtorMemberDescriptor : IOverloadableMemberDescriptor
+	public class ValueTypeDefaultCtorMemberDescriptor : IOverloadableMemberDescriptor,
+		IWireableDescriptor
 	{
 		/// <summary>
 		/// Gets a value indicating whether the described method is static.
@@ -144,6 +142,18 @@ namespace MoonSharp.Interpreter.Interop
 		public void SetValue(Script script, object obj, DynValue value)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanWrite, obj);
+		}
+
+		/// <summary>
+		/// Prepares the descriptor for hard-wiring.
+		/// The descriptor fills the passed table with all the needed data for hardwire generators to generate the appropriate code.
+		/// </summary>
+		/// <param name="t">The table to be filled</param>
+		public void PrepareForWiring(Table t)
+		{
+			t.Set("class", DynValue.NewString(this.GetType().FullName));
+			t.Set("type", DynValue.NewString(this.ValueTypeDefaultCtor.FullName));
+			t.Set("name", DynValue.NewString(this.Name));
 		}
 	}
 }

@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.DataStructs;
-
+﻿
 namespace MoonSharp.Interpreter
 {
 	/// <summary>
@@ -23,6 +18,10 @@ namespace MoonSharp.Interpreter
 		/// Coroutine is suspended
 		/// </summary>
 		Suspended,
+		/// <summary>
+		/// Coroutine has been forcefully suspended (i.e. auto-yielded)
+		/// </summary>
+		ForceSuspended,
 		/// <summary>
 		/// Coroutine is running
 		/// </summary>

@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 {
@@ -14,15 +11,15 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <summary>
 		/// The member can be read from
 		/// </summary>
-		CanRead,
+		CanRead = 1,
 		/// <summary>
 		/// The member can be written to
 		/// </summary>
-		CanWrite,
+		CanWrite = 2,
 		/// <summary>
 		/// The can be invoked
 		/// </summary>
-		CanExecute
+		CanExecute = 4
 	}
 
 

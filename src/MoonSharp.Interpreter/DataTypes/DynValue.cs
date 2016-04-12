@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using MoonSharp.Interpreter.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using MoonSharp.Interpreter.Execution;
-using MoonSharp.Interpreter.Execution.VM;
 
 namespace MoonSharp.Interpreter
 {
@@ -222,11 +218,29 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
+		/// Creates a new writable value initialized to an empty prime table (a 
+		/// prime table is a table made only of numbers, strings, booleans and other
+		/// prime tables).
+		/// </summary>
+		public static DynValue NewPrimeTable()
+		{
+			return NewTable(new Table(null));
+		}
+
+		/// <summary>
 		/// Creates a new writable value initialized to an empty table.
 		/// </summary>
 		public static DynValue NewTable(Script script)
 		{
 			return NewTable(new Table(script));
+		}
+
+		/// <summary>
+		/// Creates a new writable value initialized to with array contents.
+		/// </summary>
+		public static DynValue NewTable(Script script, params DynValue[] arrayValues)
+		{
+			return NewTable(new Table(script, arrayValues));
 		}
 
 		/// <summary>
@@ -282,6 +296,20 @@ namespace MoonSharp.Interpreter
 			return new DynValue()
 			{
 				m_Object = new YieldRequest() { ReturnValues = args },
+				m_Type = DataType.YieldRequest,
+			};
+		}
+
+		/// <summary>
+		/// Creates a new request for a yield of the current coroutine.
+		/// </summary>
+		/// <param name="args">The yield argumenst.</param>
+		/// <returns></returns>
+		internal static DynValue NewForcedYieldReq()
+		{
+			return new DynValue()
+			{
+				m_Object = new YieldRequest() { Forced = true },
 				m_Type = DataType.YieldRequest,
 			};
 		}
@@ -799,9 +827,18 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Converts this MoonSharp DynValue to a CLR object of the specified type.
 		/// </summary>
+		public object ToObject(Type desiredType)
+		{
+			//Contract.Requires(desiredType != null);
+			return MoonSharp.Interpreter.Interop.Converters.ScriptToClrConversions.DynValueToObjectOfType(this, desiredType, null, false);
+		}
+
+		/// <summary>
+		/// Converts this MoonSharp DynValue to a CLR object of the specified type.
+		/// </summary>
 		public T ToObject<T>()
 		{
-			return (T)MoonSharp.Interpreter.Interop.Converters.ScriptToClrConversions.DynValueToObjectOfType(this, typeof(T), null, false);
+			return (T)ToObject(typeof(T));
 		}
 
 #if HASDYNAMIC

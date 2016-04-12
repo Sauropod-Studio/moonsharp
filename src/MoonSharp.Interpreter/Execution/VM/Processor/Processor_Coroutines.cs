@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.DataStructs;
-using MoonSharp.Interpreter.Debugging;
 
 namespace MoonSharp.Interpreter.Execution.VM
 {
@@ -35,16 +30,23 @@ namespace MoonSharp.Interpreter.Execution.VM
 			{
 				int entrypoint = 0;
 
-				if (m_State != CoroutineState.NotStarted && m_State != CoroutineState.Suspended)
+				if (m_State != CoroutineState.NotStarted && m_State != CoroutineState.Suspended && m_State != CoroutineState.ForceSuspended)
 					throw ScriptRuntimeException.CannotResumeNotSuspended(m_State);
 
 				if (m_State == CoroutineState.NotStarted)
 				{
 					entrypoint = PushClrToScriptStackFrame(CallStackItemFlags.ResumeEntryPoint, null, args);
 				}
-				else
+				else if (m_State == CoroutineState.Suspended)
 				{
 					m_ValueStack.Push(DynValue.NewTuple(args));
+					entrypoint = m_SavedInstructionPtr;
+				}
+				else if (m_State == CoroutineState.ForceSuspended)
+				{
+					if (args != null && args.Length > 0)
+						throw new ArgumentException("When resuming a force-suspended coroutine, args must be empty.");
+
 					entrypoint = m_SavedInstructionPtr;
 				}
 
@@ -53,8 +55,16 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 				if (retVal.Type == DataType.YieldRequest)
 				{
-					m_State = CoroutineState.Suspended;
-					return DynValue.NewTuple(retVal.YieldRequest.ReturnValues);
+					if (retVal.YieldRequest.Forced)
+					{
+						m_State = CoroutineState.ForceSuspended;
+						return retVal;
+					}
+					else
+					{
+						m_State = CoroutineState.Suspended;
+						return DynValue.NewTuple(retVal.YieldRequest.ReturnValues);
+					}
 				}
 				else
 				{

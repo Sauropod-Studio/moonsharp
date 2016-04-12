@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Interop;
@@ -12,10 +11,15 @@ namespace MoonSharp.Interpreter.Execution.VM
 	{
 		const int YIELD_SPECIAL_TRAP = -99;
 
+		internal long AutoYieldCounter = 0;
+
 		private DynValue Processing_Loop(int instructionPtr)
 		{
-		// This is the main loop of the processor, has a weird control flow and needs to be as fast as possible.
-		// This sentence is just a convoluted way to say "don't complain about gotos".
+			// This is the main loop of the processor, has a weird control flow and needs to be as fast as possible.
+			// This sentence is just a convoluted way to say "don't complain about gotos".
+
+			long executedInstructions = 0;
+			bool canAutoYield = (AutoYieldCounter > 0) && m_CanYield && (this.State != CoroutineState.Main);
 
 			repeat_execution:
 
@@ -30,13 +34,21 @@ namespace MoonSharp.Interpreter.Execution.VM
 						ListenDebugger(i, instructionPtr);
 					}
 
+					++executedInstructions;
+
+					if (canAutoYield && executedInstructions > AutoYieldCounter)
+					{
+						m_SavedInstructionPtr = instructionPtr;
+						return DynValue.NewForcedYieldReq();
+					}
+
 					++instructionPtr;
 
 					switch (i.OpCode)
 					{
 						case OpCode.Nop:
 						case OpCode.Debug:
-						case OpCode.FuncMeta:
+						case OpCode.Meta:
 							break;
 						case OpCode.Pop:
 							m_ValueStack.RemoveLast(i.NumVal);
@@ -169,7 +181,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 							if (instructionPtr == YIELD_SPECIAL_TRAP) goto yield_to_calling_coroutine;
 							break;
 						case OpCode.NewTable:
-							m_ValueStack.Push(DynValue.NewTable(this.m_Script));
+							if (i.NumVal == 0)
+								m_ValueStack.Push(DynValue.NewTable(this.m_Script));
+							else
+								m_ValueStack.Push(DynValue.NewPrimeTable());
 							break;
 						case OpCode.IterPrep:
 							ExecIterPrep(i);
@@ -1241,6 +1256,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 				if (h.Type == DataType.Function || h.Type == DataType.ClrFunction)
 				{
 					if (isMultiIndex) throw new ScriptRuntimeException("cannot multi-index through metamethods. userdata expected");
+					m_ValueStack.Pop(); // burn extra value ?
 
 					m_ValueStack.Push(h);
 					m_ValueStack.Push(obj);

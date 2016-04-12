@@ -1,8 +1,4 @@
 ﻿
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace MoonSharp.Interpreter
 {
@@ -122,7 +118,7 @@ namespace MoonSharp.Interpreter
 				case DataType.TailCallRequest:
 				case DataType.YieldRequest:
 				default:
-					throw new ScriptRuntimeException("Unexpected LuaType {0}", type);
+					return string.Format("internal<{0}>", type.ToLuaDebuggerString());
 			}
 		}
 

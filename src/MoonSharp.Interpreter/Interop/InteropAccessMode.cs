@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
+﻿
 namespace MoonSharp.Interpreter
 {
 	/// <summary>
@@ -34,6 +30,10 @@ namespace MoonSharp.Interpreter
 		/// If a member is accessed before optimization is completed, reflection is used.
 		/// </summary>
 		BackgroundOptimized,
+		/// <summary>
+		/// Use the hardwired descriptor(s)
+		/// </summary>
+		Hardwired,
 		/// <summary>
 		/// No optimization is done, and members are not accessible at all.
 		/// </summary>

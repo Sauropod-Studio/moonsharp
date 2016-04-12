@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.Debugging;
+﻿using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Execution.VM;
 using MoonSharp.Interpreter.Tree.Expressions;
@@ -44,7 +40,7 @@ namespace MoonSharp.Interpreter.Tree.Fast_Interface
 			};
 		}
 
-		internal static int LoadChunk(Script script, SourceCode source, ByteCode bytecode, Table globalContext)
+		internal static int LoadChunk(Script script, SourceCode source, ByteCode bytecode)
 		{
 			ScriptLoadingContext lcontext = CreateLoadingContext(script, source);
 			try
@@ -52,7 +48,7 @@ namespace MoonSharp.Interpreter.Tree.Fast_Interface
 				Statement stat;
 
 				using (script.PerformanceStats.StartStopwatch(Diagnostics.PerformanceCounter.AstCreation))
-					stat = new ChunkStatement(lcontext, globalContext);
+					stat = new ChunkStatement(lcontext);
 
 				int beginIp = -1;
 
@@ -78,7 +74,7 @@ namespace MoonSharp.Interpreter.Tree.Fast_Interface
 			}
 		}
 
-		internal static int LoadFunction(Script script, SourceCode source, ByteCode bytecode, Table globalContext)
+		internal static int LoadFunction(Script script, SourceCode source, ByteCode bytecode, bool usesGlobalEnv)
 		{
 			ScriptLoadingContext lcontext = CreateLoadingContext(script, source);
 
@@ -87,7 +83,7 @@ namespace MoonSharp.Interpreter.Tree.Fast_Interface
 				FunctionDefinitionExpression fnx;
 
 				using (script.PerformanceStats.StartStopwatch(Diagnostics.PerformanceCounter.AstCreation))
-					fnx = new FunctionDefinitionExpression(lcontext, globalContext);
+					fnx = new FunctionDefinitionExpression(lcontext, usesGlobalEnv);
 
 				int beginIp = -1;
 

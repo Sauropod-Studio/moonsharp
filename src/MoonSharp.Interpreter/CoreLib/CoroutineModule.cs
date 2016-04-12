@@ -1,13 +1,7 @@
 ﻿// Disable warnings about XML documentation
 #pragma warning disable 1591
 
-using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.Execution;
-using MoonSharp.Interpreter.Execution.VM;
 
 namespace MoonSharp.Interpreter.CoreLib
 {
@@ -118,6 +112,7 @@ namespace MoonSharp.Interpreter.CoreLib
 						DynValue.NewString("normal");
 				case CoroutineState.NotStarted:
 				case CoroutineState.Suspended:
+				case CoroutineState.ForceSuspended:
 					return DynValue.NewString("suspended");
 				case CoroutineState.Dead:
 					return DynValue.NewString("dead");

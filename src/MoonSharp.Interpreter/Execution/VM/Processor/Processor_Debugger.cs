@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.DataStructs;
 using MoonSharp.Interpreter.Debugging;
 
 namespace MoonSharp.Interpreter.Execution.VM
@@ -12,6 +10,24 @@ namespace MoonSharp.Interpreter.Execution.VM
 	// Same reason for the "sealed" declaration.
 	sealed partial class Processor
 	{
+		internal Instruction FindMeta(ref int baseAddress)
+		{
+			Instruction meta = m_RootChunk.Code[baseAddress];
+
+			// skip nops
+			while (meta.OpCode == OpCode.Nop)
+			{
+				baseAddress++;
+				meta = m_RootChunk.Code[baseAddress];
+			}
+
+			if (meta.OpCode != OpCode.Meta)
+				return null;
+
+			return meta;
+		}
+
+
 		internal void AttachDebugger(IDebugger debugger)
 		{
 			m_Debug.DebuggerAttached = debugger;
@@ -260,7 +276,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 				var I = m_RootChunk.Code[c.Debug_EntryPoint];
 
-				string callname = I.OpCode == OpCode.FuncMeta ? I.Name : null;
+				string callname = I.OpCode == OpCode.Meta ? I.Name : null;
 
 				if (c.ClrFunction != null)
 				{

@@ -1,130 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using MoonSharp.Interpreter;
-using MoonSharp.Interpreter.Interop;
+﻿using MoonSharp.Interpreter;
+using System;
 
-namespace Playground
+namespace Test
 {
-	public class ScriptSharedVars : IUserDataType
+	[MoonSharpUserData]
+	class MyClass
 	{
-		Dictionary<string, DynValue> m_Values = new Dictionary<string, DynValue>();
-		object m_Lock = new object();
-
-		public object this[string property]
+		public double calcHypotenuse(double a, double b)
 		{
-			get { return m_Values[property].ToObject(); }
-			set { m_Values[property] = DynValue.FromObject(null, value); }
-		}
-
-		public DynValue Index(Script script, DynValue index, bool isDirectIndexing)
-		{
-			if (index.Type != DataType.String)
-				throw new ScriptRuntimeException("string property was expected");
-
-			lock (m_Lock)
-			{
-				if (m_Values.ContainsKey(index.String))
-					return m_Values[index.String].Clone();
-				else
-					return DynValue.Nil;
-			}
-		}
-
-		public bool SetIndex(Script script, DynValue index, DynValue value, bool isDirectIndexing)
-		{
-			if (index.Type != DataType.String)
-				throw new ScriptRuntimeException("string property was expected");
-
-			lock (m_Lock)
-			{
-				switch (value.Type)
-				{
-					case DataType.Void:
-					case DataType.Nil:
-						m_Values.Remove(index.String);
-						return true;
-					case DataType.UserData:
-						// HERE YOU CAN CHOOSE A DIFFERENT POLICY.. AND TRY TO SHARE IF NEEDED. DANGEROUS, THOUGH.
-						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
-					case DataType.ClrFunction:
-						// HERE YOU CAN CHOOSE A DIFFERENT POLICY.. AND TRY TO SHARE IF NEEDED. DANGEROUS, THOUGH.
-						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
-					case DataType.Boolean:
-					case DataType.Number:
-					case DataType.String:
-						m_Values[index.String] = value.Clone();
-						return true;
-					case DataType.Function:
-					case DataType.Table:
-					case DataType.Tuple:
-					case DataType.Thread:
-					case DataType.TailCallRequest:
-					case DataType.YieldRequest:
-					default:
-						throw new ScriptRuntimeException("Cannot share a value of type {0}", value.Type.ToErrorTypeString());
-				}
-			}
-		}
-
-		public DynValue MetaIndex(Script script, string metaname)
-		{
-			return null;
+			return Math.Sqrt(a * a + b * b);
 		}
 	}
 
-	
 	class Program
 	{
 		static void Main(string[] args)
 		{
-			UserData.RegisterType<ScriptSharedVars>();
+			string scriptCode = @"
 
-			ScriptSharedVars sharedVars = new ScriptSharedVars();
+local aClass = {}
+setmetatable(aClass, {__newindex = function() end, __index = function() end })
 
-			sharedVars["mystring"] = "let's go:";
+local p = {a = 1, b = 2}
+ 
+for x , v in pairs(p) do
+	print (x, v)
+	aClass[x] = v
+end
 
-			ManualResetEvent ev = new ManualResetEvent(false);
+";
 
-			StartScriptThread(sharedVars, "bum ", ev);
-			StartScriptThread(sharedVars, "chack ", ev);
+			Script script = new Script(CoreModules.Basic | CoreModules.Table | CoreModules.TableIterators | CoreModules.Metatables);
 
-			ev.Set();
+			DynValue res = script.DoString(scriptCode);
 
-			Thread.Sleep(2000); // too bored to do proper synchronization at this time of the evening...
-
-			Console.WriteLine("{0}", sharedVars["mystring"]);
-
+			Console.WriteLine(">> done");
 			Console.ReadKey();
+			return;
 		}
-
-		private static void StartScriptThread(ScriptSharedVars sharedVars, string somestr, ManualResetEvent ev)
-		{
-			Thread T = new Thread((ThreadStart)delegate
-			{
-				string script = @"
-				for i = 1, 1000 do
-					shared.mystring = shared.mystring .. somestring;
-				end
-			";
-
-				Script S = new Script();
-
-				S.Globals["shared"] = sharedVars;
-				S.Globals["somestring"] = somestr;
-
-				ev.WaitOne();
-
-				S.DoString(script);
-			});
-
-			T.IsBackground = true;
-			T.Name = "Lua script for " + somestr;
-			T.Start();
-		}
-
 	}
 }

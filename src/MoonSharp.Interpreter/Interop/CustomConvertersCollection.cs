@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace MoonSharp.Interpreter.Interop
 {
@@ -11,14 +10,67 @@ namespace MoonSharp.Interpreter.Interop
 	/// </summary>
 	public class CustomConvertersCollection 
 	{
-        private Dictionary<Type, Func<DynValue, Type, object>>[] m_Script2Clr = new Dictionary<Type, Func<DynValue, Type, object>>[(int)LuaTypeExtensions.MaxConvertibleTypes + 1];
-		private Dictionary<Type, Func<object, DynValue>> m_Clr2Script = new Dictionary<Type, Func<object, DynValue>>();
+		private Dictionary<Type, Func<DynValue, Type, object>>[] m_Script2Clr = new Dictionary<Type, Func<DynValue, Type, object>>[(int)LuaTypeExtensions.MaxConvertibleTypes + 1];
+		private Dictionary<Type, Func<Script, object, DynValue>> m_Clr2Script = new Dictionary<Type, Func<Script, object, DynValue>>();
 
 		internal CustomConvertersCollection()
 		{
 			for (int i = 0; i < m_Script2Clr.Length; i++)
                 m_Script2Clr[i] = new Dictionary<Type, Func<DynValue, Type, object>>();
 		}
+
+		// This needs to be evaluated further (doesn't work well with inheritance)
+		//
+		// 		private Dictionary<Type, Dictionary<Type, Func<object, object>>> m_Script2ClrUserData = new Dictionary<Type, Dictionary<Type, Func<object, object>>>();
+		//
+		//public void SetScriptToClrUserDataSpecificCustomConversion(Type destType, Type userDataType, Func<object, object> converter = null)
+		//{
+		//	var destTypeMap = m_Script2ClrUserData.GetOrCreate(destType, () => new Dictionary<Type, Func<object, object>>());
+		//	destTypeMap[userDataType] = converter;
+
+		//	SetScriptToClrCustomConversion(DataType.UserData, destType, v => DispatchUserDataCustomConverter(destTypeMap, v));
+		//}
+
+		//private object DispatchUserDataCustomConverter(Dictionary<Type, Func<object, object>> destTypeMap, DynValue v)
+		//{
+		//	if (v.Type != DataType.UserData)
+		//		return null;
+
+		//	if (v.UserData.Object == null)
+		//		return null;
+
+		//	Func<object, object> converter;
+
+		//	for (Type userDataType = v.UserData.Object.GetType();
+		//		userDataType != typeof(object);
+		//		userDataType = userDataType.BaseType)
+		//	{
+		//		if (destTypeMap.TryGetValue(userDataType, out converter))
+		//		{
+		//			return converter(v.UserData.Object);
+		//		}
+		//	}
+
+		//	return null;
+		//}
+
+		//public Func<object, object> GetScriptToClrUserDataSpecificCustomConversion(Type destType, Type userDataType)
+		//{
+		//	Dictionary<Type, Func<object, object>> destTypeMap;
+
+		//	if (m_Script2ClrUserData.TryGetValue(destType, out destTypeMap))
+		//	{
+		//		Func<object, object> converter;
+
+		//		if (destTypeMap.TryGetValue(userDataType, out converter))
+		//		{
+		//			return converter;
+		//		}
+		//	}
+
+		//	return null;
+		//}
+
 
 
 		/// <summary>
@@ -66,7 +118,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="clrDataType">The CLR data type.</param>
 		/// <param name="converter">The converter, or null.</param>
-		public void SetClrToScriptCustomConversion(Type clrDataType, Func<object, DynValue> converter = null)
+		public void SetClrToScriptCustomConversion(Type clrDataType, Func<Script, object, DynValue> converter = null)
 		{
 			if (converter == null)
 			{
@@ -84,9 +136,9 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <typeparam name="T">The CLR data type.</typeparam>
 		/// <param name="converter">The converter, or null.</param>
-		public void SetClrToScriptCustomConversion<T>(Func<T, DynValue> converter = null)
+		public void SetClrToScriptCustomConversion<T>(Func<Script, T, DynValue> converter = null)
 		{
-			SetClrToScriptCustomConversion(typeof(T), o => converter((T)o));
+			SetClrToScriptCustomConversion(typeof(T), (s, o) => converter(s, (T)o));
 		}
 
 
@@ -95,10 +147,31 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="clrDataType">Type of the color data.</param>
 		/// <returns>The converter function, or null if not found</returns>
-		public Func<object, DynValue> GetClrToScriptCustomConversion(Type clrDataType)
+		public Func<Script, object, DynValue> GetClrToScriptCustomConversion(Type clrDataType)
 		{
             Type t = m_Clr2Script.Keys.FirstOrDefault(x => { return x.IsAssignableFrom(clrDataType); });
             return m_Clr2Script.GetOrDefault(t ?? clrDataType);
+		}
+
+		/// Sets a custom converter from a CLR data type. Set null to remove a previous custom converter.
+		/// </summary>
+		/// <param name="clrDataType">The CLR data type.</param>
+		/// <param name="converter">The converter, or null.</param>
+		[Obsolete("This method is deprecated. Use the overloads accepting functions with a Script argument.")]
+		public void SetClrToScriptCustomConversion(Type clrDataType, Func<object, DynValue> converter = null)
+		{
+			SetClrToScriptCustomConversion(clrDataType, (s, o) => converter(o));
+		}
+
+		/// <summary>
+		/// Sets a custom converter from a CLR data type. Set null to remove a previous custom converter.
+		/// </summary>
+		/// <typeparam name="T">The CLR data type.</typeparam>
+		/// <param name="converter">The converter, or null.</param>
+		[Obsolete("This method is deprecated. Use the overloads accepting functions with a Script argument.")]
+		public void SetClrToScriptCustomConversion<T>(Func<T, DynValue> converter = null)
+		{
+			SetClrToScriptCustomConversion(typeof(T), o => converter((T)o));
 		}
 
 

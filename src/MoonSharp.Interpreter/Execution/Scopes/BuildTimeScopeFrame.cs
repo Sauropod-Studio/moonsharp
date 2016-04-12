@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using MoonSharp.Interpreter.Tree.Statements;
+﻿using MoonSharp.Interpreter.Tree.Statements;
 
 namespace MoonSharp.Interpreter.Execution.Scopes
 {
@@ -69,7 +65,12 @@ namespace MoonSharp.Interpreter.Execution.Scopes
 
 		internal SymbolRef TryDefineLocal(string name)
 		{
-			return m_ScopeTreeHead.Find(name) ?? m_ScopeTreeHead.Define(name);
+			if (m_ScopeTreeHead.Find(name) != null)
+			{
+				m_ScopeTreeHead.Rename(name);
+			}
+
+			return m_ScopeTreeHead.Define(name);
 		}
 
 		internal void ResolveLRefs()
