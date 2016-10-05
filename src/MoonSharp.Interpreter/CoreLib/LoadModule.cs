@@ -231,7 +231,11 @@ function(modulename)
 
 	local func = __require_clr_impl(modulename);
 
-	local res = func();
+	local res = func(modulename);
+
+	if (res == nil) then
+		res = true;
+	end
 
 	package.loaded[modulename] = res;
 
