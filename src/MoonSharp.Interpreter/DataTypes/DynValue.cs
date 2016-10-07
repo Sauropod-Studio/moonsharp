@@ -243,6 +243,14 @@ namespace MoonSharp.Interpreter
 			return NewTable(new Table(script, arrayValues));
 		}
 
+        /// <summary>
+        /// Creates a new writable value initialized to with array contents.
+        /// </summary>
+        public static DynValue NewTable(Script script, List<DynValue> arrayValues)
+        {
+            return NewTable(new Table(script, arrayValues));
+        }
+
 		/// <summary>
 		/// Creates a new request for a tail call. This is the preferred way to execute Lua/MoonSharp code from a callback,
 		/// although it's not always possible to use it. When a function (callback or script closure) returns a

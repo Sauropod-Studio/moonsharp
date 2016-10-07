@@ -46,6 +46,20 @@ namespace MoonSharp.Interpreter
 			}
 		}
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Table"/> class.
+        /// </summary>
+        /// <param name="owner">The owner.</param>
+        /// <param name="arrayValues">The values for the "array-like" part of the table.</param>
+        public Table(Script owner, List<DynValue> arrayValues)
+            : this(owner)
+        {
+            for (int i = 0; i < arrayValues.Count; i++)
+            {
+                this.Set(DynValue.NewNumber(i + 1), arrayValues[i]);
+            }
+        }
+
 		/// <summary>
 		/// Gets the script owning this resource.
 		/// </summary>
