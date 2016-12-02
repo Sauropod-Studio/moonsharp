@@ -11,7 +11,10 @@ namespace MoonSharp.Interpreter
 	/// </summary>
 	public sealed class DynValue
 	{
-		static int s_RefIDCounter = 0;
+        public static int INSTANCE_AMOUNT;
+        public const int MAX_POOL_SIZE;
+
+        static int s_RefIDCounter = 0;
 
 		private int m_RefID = ++s_RefIDCounter;
 		private int m_HashCode = -1;
@@ -82,14 +85,45 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool ReadOnly { get { return m_ReadOnly; } }
 
+        private static Stack<DynValue> _pool = new Stack<DynValue>();
 
+	    private static DynValue Make()
+	    {
+	        DynValue d;
+            lock (_pool)
+            {
+                if (_pool.Count > 0)
+	            {
+                     d = _pool.Pop();
+                    GC.ReRegisterForFinalize(d);
+	            }
+                else
+                    d = new DynValue();
+                INSTANCE_AMOUNT++;
+            }
+            return d;
+	    }
 
-		/// <summary>
-		/// Creates a new writable value initialized to Nil.
-		/// </summary>
-		public static DynValue NewNil()
+	    ~DynValue()
+	    {
+		    m_HashCode = -1;
+            m_ReadOnly = false;
+		    m_Number = 0;
+		    m_Object = null;
+		    m_Type = 0;
+            lock (_pool)
+            {
+                if (_pool.Count < MAX_POOL_SIZE)
+                    _pool.Push(this);
+            }
+        }
+
+        /// <summary>
+        /// Creates a new writable value initialized to Nil.
+        /// </summary>
+        public static DynValue NewNil()
 		{
-			return new DynValue();
+			return Make();
 		}
 
 		/// <summary>
@@ -97,11 +131,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewBoolean(bool v)
 		{
-			return new DynValue()
-			{
-				m_Number = v ? 1 : 0,
-				m_Type = DataType.Boolean,
-			};
+		    var d = Make();
+            d.m_Number = v ? 1 : 0;
+            d.m_Type = DataType.Boolean;
+		    return d;
 		}
 
 		/// <summary>
@@ -109,12 +142,11 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewNumber(double num)
 		{
-			return new DynValue()
-			{
-				m_Number = num,
-				m_Type = DataType.Number,
-				m_HashCode = -1,
-			};
+            var d = Make();
+            d.m_Number = num;
+            d.m_Type = DataType.Number;
+		    d.m_HashCode = -1;
+            return d;
 		}
 
 		/// <summary>
@@ -122,11 +154,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(string str)
 		{
-			return new DynValue()
-			{
-				m_Object = str,
-				m_Type = DataType.String,
-			};
+            var d = Make();
+            d.m_Object = str;
+            d.m_Type = DataType.String;
+            return d;
 		}
 
 		/// <summary>
@@ -134,11 +165,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(StringBuilder sb)
 		{
-			return new DynValue()
-			{
-				m_Object = sb.ToString(),
-				m_Type = DataType.String,
-			};
+            var d = Make();
+            d.m_Object = sb.ToString();
+            d.m_Type = DataType.String;
+            return d;
 		}
 
 		/// <summary>
@@ -146,11 +176,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(string format, params object[] args)
 		{
-			return new DynValue()
-			{
-				m_Object = string.Format(format, args),
-				m_Type = DataType.String,
-			};
+            var d = Make();
+            d.m_Object = string.Format(format, args);
+            d.m_Type = DataType.String;
+            return d;
 		}
 
 		/// <summary>
@@ -161,11 +190,10 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewCoroutine(Coroutine coroutine)
 		{
-			return new DynValue()
-			{
-				m_Object = coroutine,
-				m_Type = DataType.Thread
-			};
+            var d = Make();
+            d.m_Object = coroutine;
+            d.m_Type = DataType.Thread;
+            return d;
 		}
 
 		/// <summary>
@@ -173,11 +201,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewClosure(Closure function)
 		{
-			return new DynValue()
-			{
-				m_Object = function,
-				m_Type = DataType.Function,
-			};
+            var d = Make();
+            d.m_Object = function;
+            d.m_Type = DataType.Function;
+            return d;
 		}
 
 		/// <summary>
@@ -185,11 +212,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewCallback(Func<ScriptExecutionContext, CallbackArguments, DynValue> callBack, string name = null)
 		{
-			return new DynValue()
-			{
-				m_Object = new CallbackFunction(callBack, name),
-				m_Type = DataType.ClrFunction,
-			};
+            var d = Make();
+            d.m_Object = new CallbackFunction(callBack, name);
+            d.m_Type = DataType.ClrFunction;
+            return d;
 		}
 
 		/// <summary>
@@ -198,11 +224,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewCallback(CallbackFunction function)
 		{
-			return new DynValue()
-			{
-				m_Object = function,
-				m_Type = DataType.ClrFunction,
-			};
+            var d = Make();
+            d.m_Object = function;
+            d.m_Type = DataType.ClrFunction;
+            return d;
 		}
 
 		/// <summary>
@@ -210,11 +235,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewTable(Table table)
 		{
-			return new DynValue()
-			{
-				m_Object = table,
-				m_Type = DataType.Table,
-			};
+            var d = Make();
+            d.m_Object = table;
+            d.m_Type = DataType.Table;
+            return d;
 		}
 
 		/// <summary>
@@ -263,16 +287,15 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewTailCallReq(DynValue tailFn, params DynValue[] args)
 		{
-			return new DynValue()
-			{
-				m_Object = new TailCallData()
-				{
-					Args = args,
-					Function = tailFn,
-				},
-				m_Type = DataType.TailCallRequest,
-			};
-		}
+            var d = Make();
+            d.m_Object = new TailCallData()
+            {
+                Args = args,
+                Function = tailFn,
+            };
+            d.m_Type = DataType.TailCallRequest;
+            return d;
+    	}
 
 		/// <summary>
 		/// Creates a new request for a tail call. This is the preferred way to execute Lua/MoonSharp code from a callback,
@@ -285,11 +308,10 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewTailCallReq(TailCallData tailCallData)
 		{
-			return new DynValue()
-			{
-				m_Object = tailCallData,
-				m_Type = DataType.TailCallRequest,
-			};
+            var d = Make();
+            d.m_Object = tailCallData;
+            d.m_Type = DataType.TailCallRequest;
+		    return d;
 		}
 
 
@@ -301,11 +323,10 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewYieldReq(DynValue[] args)
 		{
-			return new DynValue()
-			{
-				m_Object = new YieldRequest() { ReturnValues = args },
-				m_Type = DataType.YieldRequest,
-			};
+            var d = Make();
+            d.m_Object = new YieldRequest() { ReturnValues = args };
+            d.m_Type = DataType.YieldRequest;
+            return d;
 		}
 
 		/// <summary>
@@ -315,29 +336,29 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		internal static DynValue NewForcedYieldReq()
 		{
-			return new DynValue()
-			{
-				m_Object = new YieldRequest() { Forced = true },
-				m_Type = DataType.YieldRequest,
-			};
-		}
+            var d = Make();
+            d.m_Object = new YieldRequest() { Forced = true };
+            d.m_Type = DataType.YieldRequest;
+            return d;
+        }
 
 		/// <summary>
 		/// Creates a new tuple initialized to the specified values.
 		/// </summary>
 		public static DynValue NewTuple(params DynValue[] values)
 		{
-			if (values.Length == 0)
-				return DynValue.NewNil();
+            if (values.Length == 0)
+                return NewNil();
 
-			if (values.Length == 1)
-				return values[0];
+            if (values.Length == 1)
+                return values[0];
 
-			return new DynValue()
-			{
-				m_Object = values,
-				m_Type = DataType.Tuple,
-			};
+            var d = Make();
+
+            d.m_Object = values;
+            d.m_Type = DataType.Tuple;
+
+            return d;
 		}
 
 		/// <summary>
@@ -361,11 +382,10 @@ namespace MoonSharp.Interpreter
 					vals.Add(v);
 			}
 
-			return new DynValue()
-			{
-				m_Object = vals.ToArray(),
-				m_Type = DataType.Tuple,
-			};
+            var d = Make();
+		    d.m_Object = vals.ToArray();
+		    d.m_Type = DataType.Tuple;
+		    return d;
 		}
 
 
@@ -374,11 +394,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewUserData(UserData userData)
 		{
-			return new DynValue()
-			{
-				m_Object = userData,
-				m_Type = DataType.UserData,
-			};
+            var d = Make();
+            d.m_Object = userData;
+            d.m_Type = DataType.UserData;
+            return d;
 		}
 
 		/// <summary>
@@ -410,7 +429,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public DynValue Clone(bool readOnly)
 		{
-			DynValue v = new DynValue();
+			DynValue v = Make();
 			v.m_Object = this.m_Object;
 			v.m_Number = this.m_Number;
 			v.m_HashCode = this.m_HashCode;
@@ -449,10 +468,15 @@ namespace MoonSharp.Interpreter
 
 		static DynValue()
 		{
-			Nil = new DynValue() { m_Type = DataType.Nil }.AsReadOnly();
-			Void = new DynValue() { m_Type = DataType.Void }.AsReadOnly();
-			True = DynValue.NewBoolean(true).AsReadOnly();
-			False = DynValue.NewBoolean(false).AsReadOnly();
+		    Nil = Make();
+		    Nil.m_Type = DataType.Nil;
+            Nil = Nil.AsReadOnly();
+
+            Void = Make();
+            Void.m_Type = DataType.Void;
+            Void = Void.AsReadOnly();
+			True = NewBoolean(true).AsReadOnly();
+			False = NewBoolean(false).AsReadOnly();
 		}
 
 
