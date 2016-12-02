@@ -398,13 +398,13 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 				Script.GlobalOptions.CustomConverters.Clear();
 
 				Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.Table, typeof(List<string>),
-					v => null);
+					(v, t) => null);
 
 				Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.Table, typeof(IList<int>),
-					v => new List<int>() { 42, 77, 125, 13 });
+                    (v, t) => new List<int>() { 42, 77, 125, 13 });
 
 				Script.GlobalOptions.CustomConverters.SetScriptToClrCustomConversion(DataType.Table, typeof(int[]),
-					v => new int[] { 43, 78, 126, 14 });
+                    (v, t) => new int[] { 43, 78, 126, 14 });
 
 				Script.GlobalOptions.CustomConverters.SetClrToScriptCustomConversion<StringBuilder>(
 					(_s, v) => DynValue.NewString(v.ToString().ToUpper()));
