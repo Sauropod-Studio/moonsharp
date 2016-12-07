@@ -72,10 +72,10 @@ namespace MoonSharp.Interpreter.Platforms
 #if PCL
 			IsPortableFramework = true;
 #else
-			IsRunningOnUnity = AppDomain.CurrentDomain
-				.GetAssemblies()
-				.SelectMany(a => a.SafeGetTypes())
-				.Any(t => t.FullName.StartsWith("UnityEngine."));
+		    IsRunningOnUnity = false & AppDomain.CurrentDomain
+		        .GetAssemblies()
+		        .SelectMany(a => a.SafeGetTypes())
+		        .Any(t => t.FullName.StartsWith("UnityEngine."));
 #endif
 
 			IsRunningOnMono = (Type.GetType("Mono.Runtime") != null);
