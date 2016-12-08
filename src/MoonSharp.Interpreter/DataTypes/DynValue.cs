@@ -12,7 +12,7 @@ namespace MoonSharp.Interpreter
 	public sealed class DynValue
 	{
         public static int INSTANCE_AMOUNT;
-        public const int MAX_POOL_SIZE;
+        public const int MAX_POOL_SIZE = 100000;
 
         static int s_RefIDCounter = 0;
 
@@ -98,8 +98,10 @@ namespace MoonSharp.Interpreter
                     GC.ReRegisterForFinalize(d);
 	            }
                 else
+                { 
                     d = new DynValue();
-                INSTANCE_AMOUNT++;
+                    INSTANCE_AMOUNT++;
+                }
             }
             return d;
 	    }
