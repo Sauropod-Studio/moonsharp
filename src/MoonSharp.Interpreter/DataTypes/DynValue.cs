@@ -15,7 +15,7 @@ namespace MoonSharp.Interpreter
         public const int MAX_POOL_SIZE = 100000;
 
         private static int s_RefIDCounter = 0;
-        private static Stack<DynValue> _pool = new Stack<DynValue>();
+        private static Stack<DynValue> _pool = new Stack<DynValue>(MAX_POOL_SIZE);
 
 
 		private int m_RefID = ++s_RefIDCounter;
@@ -87,7 +87,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool ReadOnly { get { return m_ReadOnly; } }
 
-	    private static DynValue Make()
+	    private static DynValue Request()
 	    {
 	        DynValue d;
             lock (_pool)
@@ -125,7 +125,7 @@ namespace MoonSharp.Interpreter
         /// </summary>
         public static DynValue NewNil()
 		{
-			return Make();
+			return Request();
 		}
 
 		/// <summary>
@@ -133,7 +133,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewBoolean(bool v)
 		{
-		    var d = Make();
+		    var d = Request();
             d.m_Number = v ? 1 : 0;
             d.m_Type = DataType.Boolean;
 		    return d;
@@ -144,7 +144,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewNumber(double num)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Number = num;
             d.m_Type = DataType.Number;
 		    d.m_HashCode = -1;
@@ -156,7 +156,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(string str)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = str;
             d.m_Type = DataType.String;
             return d;
@@ -167,7 +167,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(StringBuilder sb)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = sb.ToString();
             d.m_Type = DataType.String;
             return d;
@@ -178,7 +178,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewString(string format, params object[] args)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = string.Format(format, args);
             d.m_Type = DataType.String;
             return d;
@@ -192,7 +192,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewCoroutine(Coroutine coroutine)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = coroutine;
             d.m_Type = DataType.Thread;
             return d;
@@ -203,7 +203,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewClosure(Closure function)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = function;
             d.m_Type = DataType.Function;
             return d;
@@ -214,7 +214,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewCallback(Func<ScriptExecutionContext, CallbackArguments, DynValue> callBack, string name = null)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = new CallbackFunction(callBack, name);
             d.m_Type = DataType.ClrFunction;
             return d;
@@ -226,7 +226,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewCallback(CallbackFunction function)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = function;
             d.m_Type = DataType.ClrFunction;
             return d;
@@ -237,7 +237,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewTable(Table table)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = table;
             d.m_Type = DataType.Table;
             return d;
@@ -289,7 +289,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewTailCallReq(DynValue tailFn, params DynValue[] args)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = new TailCallData()
             {
                 Args = args,
@@ -310,7 +310,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewTailCallReq(TailCallData tailCallData)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = tailCallData;
             d.m_Type = DataType.TailCallRequest;
 		    return d;
@@ -325,7 +325,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue NewYieldReq(DynValue[] args)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = new YieldRequest() { ReturnValues = args };
             d.m_Type = DataType.YieldRequest;
             return d;
@@ -338,7 +338,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		internal static DynValue NewForcedYieldReq()
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = new YieldRequest() { Forced = true };
             d.m_Type = DataType.YieldRequest;
             return d;
@@ -355,7 +355,7 @@ namespace MoonSharp.Interpreter
             if (values.Length == 1)
                 return values[0];
 
-            var d = Make();
+            var d = Request();
 
             d.m_Object = values;
             d.m_Type = DataType.Tuple;
@@ -384,7 +384,7 @@ namespace MoonSharp.Interpreter
 					vals.Add(v);
 			}
 
-            var d = Make();
+            var d = Request();
 		    d.m_Object = vals.ToArray();
 		    d.m_Type = DataType.Tuple;
 		    return d;
@@ -396,7 +396,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public static DynValue NewUserData(UserData userData)
 		{
-            var d = Make();
+            var d = Request();
             d.m_Object = userData;
             d.m_Type = DataType.UserData;
             return d;
@@ -431,7 +431,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public DynValue Clone(bool readOnly)
 		{
-			DynValue v = Make();
+			DynValue v = Request();
 			v.m_Object = this.m_Object;
 			v.m_Number = this.m_Number;
 			v.m_HashCode = this.m_HashCode;
@@ -470,13 +470,11 @@ namespace MoonSharp.Interpreter
 
 		static DynValue()
 		{
-            _pool = new Stack<DynValue>(MAX_POOL_SIZE);
-
-            Nil = Make();
+            Nil = Request();
 		    Nil.m_Type = DataType.Nil;
             Nil = Nil.AsReadOnly();
 
-            Void = Make();
+            Void = Request();
             Void.m_Type = DataType.Void;
             Void = Void.AsReadOnly();
 			True = NewBoolean(true).AsReadOnly();
