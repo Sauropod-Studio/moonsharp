@@ -14,7 +14,9 @@ namespace MoonSharp.Interpreter
         public static int INSTANCE_AMOUNT;
         public const int MAX_POOL_SIZE = 100000;
 
-        static int s_RefIDCounter = 0;
+        private static int s_RefIDCounter = 0;
+        private static Stack<DynValue> _pool = new Stack<DynValue>();
+
 
 		private int m_RefID = ++s_RefIDCounter;
 		private int m_HashCode = -1;
@@ -84,8 +86,6 @@ namespace MoonSharp.Interpreter
 		/// Returns true if this instance is write protected.
 		/// </summary>
 		public bool ReadOnly { get { return m_ReadOnly; } }
-
-        private static Stack<DynValue> _pool = new Stack<DynValue>();
 
 	    private static DynValue Make()
 	    {
@@ -470,7 +470,9 @@ namespace MoonSharp.Interpreter
 
 		static DynValue()
 		{
-		    Nil = Make();
+            _pool = new Stack<DynValue>(MAX_POOL_SIZE);
+
+            Nil = Make();
 		    Nil.m_Type = DataType.Nil;
             Nil = Nil.AsReadOnly();
 
@@ -479,7 +481,19 @@ namespace MoonSharp.Interpreter
             Void = Void.AsReadOnly();
 			True = NewBoolean(true).AsReadOnly();
 			False = NewBoolean(false).AsReadOnly();
-		}
+
+            new System.Threading.Thread(() => WarnDynValueCache()).Start();
+        }
+
+        private static void WarnDynValueCache()
+	    {
+            lock(_pool)
+            { 
+                INSTANCE_AMOUNT = MAX_POOL_SIZE;
+	            for (int i = MAX_POOL_SIZE; i > 0; i--)
+	                _pool.Push(new DynValue());
+            }
+        }
 
 
 		/// <summary>
