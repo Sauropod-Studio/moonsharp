@@ -119,6 +119,14 @@
   <ItemGroup>
     <Compile Include="AsyncExtensions.cs" />
     <Compile Include="CodeAnalysis\AstNode.cs" />
+    <Compile Include="Compatibility\Framework.cs" />
+    <Compile Include="Compatibility\Frameworks\Base\FrameworkBase.cs" />
+    <Compile Include="Compatibility\Frameworks\FrameworkCLR.cs" />
+    <Compile Include="Compatibility\Frameworks\Base\FrameworkReflectionBase.cs" />
+    <Compile Include="Compatibility\Frameworks\Base\FrameworkClrBase.cs" />
+    <Compile Include="Compatibility\Frameworks\FrameworkCore.cs" />
+    <Compile Include="Compatibility\Frameworks\FrameworkPCL.cs" />
+    <Compile Include="Compatibility\Frameworks\FrameworkWin8.cs" />
     <Compile Include="CoreLib\CoroutineModule.cs" />
     <Compile Include="CoreLib\BasicModule.cs" />
     <Compile Include="CoreLib\DebugModule.cs" />
@@ -130,6 +138,7 @@
     <Compile Include="CoreLib\IO\FileUserDataBase.cs" />
     <Compile Include="CoreLib\IO\StandardIOFileUserDataBase.cs" />
     <Compile Include="CoreLib\IO\StreamFileUserDataBase.cs" />
+    <Compile Include="CoreLib\JsonModule.cs" />
     <Compile Include="CoreLib\LoadModule.cs" />
     <Compile Include="CoreLib\Bit32Module.cs" />
     <Compile Include="CoreLib\MathModule.cs" />
@@ -139,6 +148,8 @@
     <Compile Include="CoreLib\StringLib\KopiLua_StrLib.cs" />
     <Compile Include="DataStructs\MultiDictionary.cs" />
     <Compile Include="DataStructs\ReferenceEqualityComparer.cs" />
+    <Compile Include="Debugging\DebuggerCaps.cs" />
+    <Compile Include="Debugging\DebugService.cs" />
     <Compile Include="Execution\VM\OpCodeMetadataType.cs" />
     <Compile Include="Interop\Attributes\MoonSharpPropertyAttribute.cs" />
     <Compile Include="Interop\Attributes\MoonSharpUserDataMetamethodAttribute.cs" />
@@ -291,6 +302,7 @@
     <Compile Include="Loaders\FileSystemScriptLoader.cs" />
     <Compile Include="Loaders\InvalidScriptLoader.cs" />
     <Compile Include="Options\ColonOperatorBehaviour.cs" />
+    <Compile Include="Platforms\DotNetCorePlatformAccessor.cs" />
     <Compile Include="REPL\ReplHistoryNavigator.cs" />
     <Compile Include="REPL\ReplInterpreterScriptLoader.cs" />
     <Compile Include="Loaders\ScriptLoaderBase.cs" />
@@ -302,12 +314,10 @@
     <Compile Include="Platforms\PlatformAccessorBase.cs" />
     <Compile Include="Platforms\PlatformAutoDetector.cs" />
     <Compile Include="Platforms\LimitedPlatformAccessor.cs" />
-    <Compile Include="Platforms\PortableWrappers\Utils.cs" />
     <Compile Include="Platforms\StandardFileType.cs" />
     <Compile Include="Platforms\StandardPlatformAccessor.cs" />
-    <Compile Include="Platforms\PortableWrappers\Attributes.cs" />
-    <Compile Include="Platforms\PortableWrappers\ExtensionMethods.cs" />
-    <Compile Include="Platforms\PortableWrappers\Stopwatch.cs" />
+    <Compile Include="Compatibility\Attributes.cs" />
+    <Compile Include="Compatibility\Stopwatch.cs" />
     <Compile Include="REPL\ReplInterpreter.cs" />
     <Compile Include="Script.cs" />
     <Compile Include="DataTypes\Table.cs" />
@@ -334,6 +344,9 @@
     </Compile>
     <Compile Include="ScriptGlobalOptions.cs" />
     <Compile Include="ScriptOptions.cs" />
+    <Compile Include="Serialization\Json\JsonNull.cs" />
+    <Compile Include="Serialization\Json\JsonTableConverter.cs" />
+    <Compile Include="Serialization\ObjectValueConverter.cs" />
     <Compile Include="Serialization\SerializationExtensions.cs" />
     <Compile Include="Tree\Expressions\AdjustmentExpression.cs" />
     <Compile Include="Tree\Expressions\BinaryOperatorExpression.cs" />
