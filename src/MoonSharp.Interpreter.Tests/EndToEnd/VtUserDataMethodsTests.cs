@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MoonSharp.Interpreter.Compatibility;
 using MoonSharp.Interpreter.Interop;
 using NUnit.Framework;
 
@@ -55,7 +56,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 				sb.Append("|");
 
-				sb.Append(string.Join(",", map.Keys.OrderBy(x => x).Select(i => i.ToString()).ToArray()));
+				sb.Append(string.Join(",", map.Keys.OrderBy(x => x.ToUpperInvariant()).ToArray()));
 
 				sb.Append("|");
 
@@ -86,9 +87,9 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 				p7.Append("|");
 				foreach (var o in p6) p7.Append(o);
 				p7.Append("|");
-				foreach (var o in p8.Keys.OrderBy(x => x.ToString())) p7.Append(o);
+				foreach (var o in p8.Keys.OrderBy(x => x.ToString().ToUpperInvariant())) p7.Append(o);
 				p7.Append("|");
-				foreach (var o in p8.Values.OrderBy(x => x.ToString())) p7.Append(o);
+				foreach (var o in p8.Values.OrderBy(x => x.ToString().ToUpperInvariant())) p7.Append(o);
 				p7.Append("|");
 
 				p7.Append(p9);
@@ -174,7 +175,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 				sb.Append("|");
 
-				sb.Append(string.Join(",", map.Keys.OrderBy(x => x).Select(i => i.ToString()).ToArray()));
+				sb.Append(string.Join(",", map.Keys.OrderBy(x => x.ToUpperInvariant()).ToArray()));
 
 				sb.Append("|");
 
@@ -205,9 +206,9 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 				p7.Append("|");
 				foreach (var o in p6) p7.Append(o);
 				p7.Append("|");
-				foreach (var o in p8.Keys.OrderBy(x => x.ToString())) p7.Append(o);
+				foreach (var o in p8.Keys.OrderBy(x => x.ToString().ToUpperInvariant())) p7.Append(o);
 				p7.Append("|");
-				foreach (var o in p8.Values.OrderBy(x => x.ToString())) p7.Append(o);
+				foreach (var o in p8.Values.OrderBy(x => x.ToString().ToUpperInvariant())) p7.Append(o);
 				p7.Append("|");
 
 				p7.Append(p9);
@@ -311,7 +312,7 @@ namespace MoonSharp.Interpreter.Tests.EndToEnd
 
 			public bool IsTypeCompatible(Type type, object obj)
 			{
-				return type.IsInstanceOfType(obj);
+				return Framework.Do.IsInstanceOfType(type, obj);
 			}
 		}
 

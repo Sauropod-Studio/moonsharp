@@ -2,6 +2,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
+using MoonSharp.Interpreter.Compatibility;
 using MoonSharp.Interpreter.Diagnostics;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.Converters;
@@ -60,8 +61,8 @@ namespace MoonSharp.Interpreter.Interop
 		/// <returns>A new StandardUserDataPropertyDescriptor or null.</returns>
 		public static PropertyMemberDescriptor TryCreateIfVisible(PropertyInfo pi, InteropAccessMode accessMode, bool forceVisibility = false)
 		{
-			MethodInfo getter = pi.GetGetMethod(true);
-			MethodInfo setter = pi.GetSetMethod(true);
+			MethodInfo getter = Framework.Do.GetGetMethod(pi);
+			MethodInfo setter = Framework.Do.GetSetMethod(pi);
 
 			bool? pvisible = pi.GetVisibilityFromAttributes();
 			bool? gvisible = getter.GetVisibilityFromAttributes();
@@ -98,7 +99,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="pi">The pi.</param>
 		/// <param name="accessMode">The access mode.</param>
 		public PropertyMemberDescriptor(PropertyInfo pi, InteropAccessMode accessMode)
-			: this(pi, accessMode, pi.GetGetMethod(), pi.GetSetMethod())
+			: this(pi, accessMode, Framework.Do.GetGetMethod(pi), Framework.Do.GetSetMethod(pi))
 		{
 		}
 
@@ -191,9 +192,9 @@ namespace MoonSharp.Interpreter.Interop
 		{
 			using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
 			{
-				if (m_Setter != null && !(PropertyInfo.DeclaringType.IsValueType))
+				if (m_Setter != null && !(Framework.Do.IsValueType(PropertyInfo.DeclaringType)))
 				{
-					MethodInfo setterMethod = PropertyInfo.GetSetMethod(true);
+					MethodInfo setterMethod = Framework.Do.GetSetMethod(PropertyInfo);
 
 					if (IsStatic)
 					{
@@ -302,7 +303,7 @@ namespace MoonSharp.Interpreter.Interop
 			t.Set("read", DynValue.NewBoolean(this.CanRead));
 			t.Set("write", DynValue.NewBoolean(this.CanWrite));
 			t.Set("decltype", DynValue.NewString(this.PropertyInfo.DeclaringType.FullName));
-			t.Set("declvtype", DynValue.NewBoolean(this.PropertyInfo.DeclaringType.IsValueType));
+			t.Set("declvtype", DynValue.NewBoolean(Framework.Do.IsValueType(this.PropertyInfo.DeclaringType)));
 			t.Set("type", DynValue.NewString(this.PropertyInfo.PropertyType.FullName));
 		}
 	}

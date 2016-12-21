@@ -30,6 +30,14 @@ namespace MoonSharp.Interpreter.Platforms
 		/// Gets a value indicating whether this instance has been built as a Portable Class Library
 		/// </summary>
 		public static bool IsPortableFramework { get; private set; }
+		/// <summary>
+		/// Gets a value indicating whether this instance has been compiled natively in Unity (as opposite to importing a DLL).
+		/// </summary>
+		public static bool IsUnityNative { get; private set; }
+		/// <summary>
+		/// Gets a value indicating whether this instance has been compiled natively in Unity AND is using IL2CPP
+		/// </summary>
+		public static bool IsUnityIL2CPP { get; private set; }
 
 
 		/// <summary>
@@ -41,8 +49,8 @@ namespace MoonSharp.Interpreter.Platforms
 			// We do a lazy eval here, so we can wire out this code by not calling it, if necessary..
 			get
 			{
-#if UNITY_WEBGL
-				return false;
+#if UNITY_WEBGL || UNITY_IOS || UNITY_TVOS || ENABLE_IL2CPP
+				return true;
 #else
 
 				if (!m_IsRunningOnAOT.HasValue)
@@ -71,11 +79,24 @@ namespace MoonSharp.Interpreter.Platforms
 				return;
 #if PCL
 			IsPortableFramework = true;
+#if ENABLE_DOTNET
+			IsRunningOnUnity = true;
+			IsUnityNative = true;
+#endif
 #else
-		    IsRunningOnUnity = false & AppDomain.CurrentDomain
-		        .GetAssemblies()
-		        .SelectMany(a => a.SafeGetTypes())
-		        .Any(t => t.FullName.StartsWith("UnityEngine."));
+#if UNITY_5
+			IsRunningOnUnity = true;
+			IsUnityNative = true;
+
+	#if ENABLE_IL2CPP
+					IsUnityIL2CPP = true;
+	#endif
+	#elif !(NETFX_CORE)
+			IsRunningOnUnity = false & AppDomain.CurrentDomain
+				.GetAssemblies()
+				.SelectMany(a => a.SafeGetTypes())
+				.Any(t => t.FullName.StartsWith("UnityEngine."));
+	#endif
 #endif
 
 			IsRunningOnMono = (Type.GetType("Mono.Runtime") != null);
@@ -91,13 +112,17 @@ namespace MoonSharp.Interpreter.Platforms
 		{
 			AutoDetectPlatformFlags();
 
-#if PCL
+#if PCL || ENABLE_DOTNET
 			return new LimitedPlatformAccessor();
 #else
 			if (IsRunningOnUnity)
 				return new LimitedPlatformAccessor();
 
+#if DOTNET_CORE
+			return new DotNetCorePlatformAccessor();
+#else
 			return new StandardPlatformAccessor();
+#endif
 #endif
 		}
 
@@ -105,14 +130,18 @@ namespace MoonSharp.Interpreter.Platforms
 		{
 			AutoDetectPlatformFlags();
 
-#if PCL
-			return new InvalidScriptLoader("Portable Framework");
-#else
 			if (IsRunningOnUnity)
 				return new UnityAssetsScriptLoader();
-
-			return new FileSystemScriptLoader();
+			else
+			{
+#if (DOTNET_CORE)
+				return new FileSystemScriptLoader();
+#elif (PCL || ENABLE_DOTNET || NETFX_CORE)
+				return new InvalidScriptLoader("Portable Framework");
+#else
+				return new FileSystemScriptLoader();
 #endif
+			}
 		}
 	}
 }
