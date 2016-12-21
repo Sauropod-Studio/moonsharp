@@ -17,16 +17,16 @@ namespace MoonSharp.Interpreter
 	/// </summary>
 	public class UserData : RefIdObject
 	{
-		private UserData()
-		{
-			// This type can only be instantiated using one of the Create methods
-		}
+        public static int INSTANCE_AMOUNT;
+        public const int MAX_POOL_SIZE = 50000;
 
-		/// <summary>
-		/// Gets or sets the "uservalue". See debug.getuservalue and debug.setuservalue.
-		/// http://www.lua.org/manual/5.2/manual.html#pdf-debug.setuservalue
-		/// </summary>
-		public DynValue UserValue { get; set; }
+        private static Stack<UserData> _pool = new Stack<UserData>(MAX_POOL_SIZE);
+
+        /// <summary>
+        /// Gets or sets the "uservalue". See debug.getuservalue and debug.setuservalue.
+        /// http://www.lua.org/manual/5.2/manual.html#pdf-debug.setuservalue
+        /// </summary>
+        public DynValue UserValue { get; set; }
 
 		/// <summary>
 		/// Gets the object associated to this userdata (null for statics)
@@ -42,7 +42,7 @@ namespace MoonSharp.Interpreter
 
 		static UserData()
 		{
-			RegistrationPolicy = InteropRegistrationPolicy.Default;
+            RegistrationPolicy = InteropRegistrationPolicy.Default;
 
 			RegisterType<EventFacade>(InteropAccessMode.NoReflectionAllowed);
 			RegisterType<AnonWrapper>(InteropAccessMode.HideMembers);
@@ -50,15 +50,65 @@ namespace MoonSharp.Interpreter
 			RegisterType<JsonNull>(InteropAccessMode.Reflection);
 
 			DefaultAccessMode = InteropAccessMode.LazyOptimized;
-		}
 
-		/// <summary>
-		/// Registers a type for userdata interop
-		/// </summary>
-		/// <typeparam name="T">The type to be registered</typeparam>
-		/// <param name="accessMode">The access mode (optional).</param>
-		/// <param name="friendlyName">Friendly name for the type (optional)</param>
-		public static IUserDataDescriptor RegisterType<T>(InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
+            new System.Threading.Thread(() => WarnDynValueCache()).Start();
+        }
+
+        private static void WarnDynValueCache()
+        {
+            lock (_pool)
+            {
+                INSTANCE_AMOUNT = MAX_POOL_SIZE;
+                for (int i = MAX_POOL_SIZE; i > 0; i--)
+                    _pool.Push(new UserData());
+            }
+        }
+
+        private UserData()
+        {
+            // This type can only be instantiated using one of the Create methods
+        }
+
+        private static UserData Request()
+        {
+            UserData d;
+            lock (_pool)
+            {
+                if (_pool.Count > 0)
+                {
+                    d = _pool.Pop();
+                    GC.ReRegisterForFinalize(d);
+                }
+                else
+                {
+                    d = new UserData();
+                    INSTANCE_AMOUNT++;
+                }
+            }
+            return d;
+            // This type can only be instantiated using one of the Create methods
+        }
+
+
+        ~UserData()
+        {
+            UserValue = null;
+            Object = null;
+            Descriptor = null;
+            lock (_pool)
+            {
+                if (_pool.Count < MAX_POOL_SIZE)
+                    _pool.Push(this);
+            }
+        }
+
+        /// <summary>
+        /// Registers a type for userdata interop
+        /// </summary>
+        /// <typeparam name="T">The type to be registered</typeparam>
+        /// <param name="accessMode">The access mode (optional).</param>
+        /// <param name="friendlyName">Friendly name for the type (optional)</param>
+        public static IUserDataDescriptor RegisterType<T>(InteropAccessMode accessMode = InteropAccessMode.Default, string friendlyName = null)
 		{
 			return TypeDescriptorRegistry.RegisterType_Impl(typeof(T), accessMode, friendlyName, null);
 		}
@@ -210,11 +260,11 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue Create(object o, IUserDataDescriptor descr)
 		{
-			return DynValue.NewUserData(new UserData()
-			{
-				Descriptor = descr,
-				Object = o
-			});
+		    var userData = UserData.Request();
+            userData.Descriptor = descr;
+		    userData.Object = o;
+
+		    return DynValue.NewUserData(userData);
 		}
 
 		/// <summary>
@@ -243,23 +293,23 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue CreateStatic(IUserDataDescriptor descr)
 		{
-			if (descr == null) return null;
+		    if (descr == null)
+                return null;
 
-			return DynValue.NewUserData(new UserData()
-			{
-				Descriptor = descr,
-				Object = null
-			});
+		    var userData = UserData.Request();
+		    userData.Descriptor = descr;
+		    userData.Object = null;
+		    return DynValue.NewUserData(userData);
 		}
 
-		/// <summary>
-		/// Creates a static userdata DynValue from the specified Type
-		/// </summary>
-		/// <param name="t">The type</param>
-		/// <returns></returns>
-		public static DynValue CreateStatic(Type t)
-		{
-			return CreateStatic(GetDescriptorForType(t, false));
+        /// <summary>
+        /// Creates a static userdata DynValue from the specified Type
+        /// </summary>
+        /// <param name="t">The type</param>
+        /// <returns></returns>
+        public static DynValue CreateStatic(Type t)
+        {
+            return CreateStatic(GetDescriptorForType(t, false));
 		}
 
 		/// <summary>
