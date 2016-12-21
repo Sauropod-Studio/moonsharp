@@ -131,7 +131,7 @@ namespace MoonSharp.Interpreter.Platforms
 			AutoDetectPlatformFlags();
 
 			if (IsRunningOnUnity)
-				return new UnityAssetsScriptLoader();
+				return new FileSystemScriptLoader();
 			else
 			{
 #if (DOTNET_CORE)
