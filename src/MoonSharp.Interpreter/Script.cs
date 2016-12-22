@@ -453,38 +453,12 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(DynValue function, params DynValue[] args)
 		{
-			this.CheckScriptOwnership(function);
-			this.CheckScriptOwnership(args);
+            return PreFormattedCall(function, args);
 
-			if (function.Type != DataType.Function && function.Type != DataType.ClrFunction)
-			{
-				DynValue metafunction = m_MainProcessor.GetMetamethod(function, "__call");
+        }
 
-				if (metafunction != null)
-				{
-					DynValue[] metaargs = new DynValue[args.Length + 1];
-					metaargs[0] = function;
-					for (int i = 0; i < args.Length; i++)
-						metaargs[i + 1] = args[i];
-
-					function = metafunction;
-					args = metaargs;
-				}
-				else
-				{
-					throw new ArgumentException("function is not a function and has no __call metamethod.");
-				}
-			}
-			else if (function.Type == DataType.ClrFunction)
-			{
-				return function.Callback.ClrCallback(this.CreateDynamicExecutionContext(function.Callback), new CallbackArguments(args, false));
-			}
-
-			return m_MainProcessor.Call(function, args);
-		}
-
-		/// <summary>
-		/// Calls the specified function.
+        /// <summary>
+		/// Calls the specified function without leak. Make sure to leave the first element of the list empty!
 		/// </summary>
 		/// <param name="function">The Lua/MoonSharp function to be called</param>
 		/// <param name="args">The arguments to pass to the function.</param>
@@ -492,7 +466,48 @@ namespace MoonSharp.Interpreter
 		/// The return value(s) of the function call.
 		/// </returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(DynValue function, params object[] args)
+		public DynValue PreFormattedCall(DynValue function, IList<DynValue> args)
+        {
+            //this.CheckScriptOwnership(function);
+            //this.CheckScriptOwnership(args);
+
+            if (function.Type != DataType.Function && function.Type != DataType.ClrFunction)
+            {
+                DynValue metafunction = m_MainProcessor.GetMetamethod(function, "__call");
+
+                if (metafunction != null)
+                {
+                    DynValue[] metaargs = new DynValue[args.Count + 1];
+                    metaargs[0] = function;
+                    for (int i = 0; i < args.Count; i++)
+                        metaargs[i + 1] = args[i];
+
+                    function = metafunction;
+                    args = metaargs;
+                }
+                else
+                {
+                    throw new ArgumentException("function is not a function and has no __call metamethod.");
+                }
+            }
+            else if (function.Type == DataType.ClrFunction)
+            {
+                return function.Callback.ClrCallback(this.CreateDynamicExecutionContext(function.Callback), new CallbackArguments(args, false));
+            }
+
+            return m_MainProcessor.Call(function, args);
+        }
+
+        /// <summary>
+        /// Calls the specified function.
+        /// </summary>
+        /// <param name="function">The Lua/MoonSharp function to be called</param>
+        /// <param name="args">The arguments to pass to the function.</param>
+        /// <returns>
+        /// The return value(s) of the function call.
+        /// </returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue function, params object[] args)
 		{
 			DynValue[] dargs = new DynValue[args.Length];
 

@@ -46,7 +46,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 
 
-		public DynValue Call(DynValue function, DynValue[] args)
+		public DynValue Call(DynValue function, IList<DynValue> args)
 		{
 			List<Processor> coroutinesStack = m_Parent != null ? m_Parent.m_CoroutinesStack : this.m_CoroutinesStack;
 
@@ -82,35 +82,35 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		// pushes all what's required to perform a clr-to-script function call. function can be null if it's already
 		// at vstack top.
-		private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, DynValue[] args)
-		{
-			if (function == null) 
-				function = m_ValueStack.Peek();
-			else
-				m_ValueStack.Push(function);  // func val
+        private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, IList<DynValue> args)
+        {
+            if (function == null)
+                function = m_ValueStack.Peek();
+            else
+                m_ValueStack.Push(function);  // func val
 
-			args = Internal_AdjustTuple(args);
+            args = Internal_AdjustTuple(args);
 
-			for (int i = 0; i < args.Length; i++)
-				m_ValueStack.Push(args[i]);
+            for (int i = 0; i < args.Count; i++)
+                m_ValueStack.Push(args[i]);
 
-			m_ValueStack.Push(DynValue.NewNumber(args.Length));  // func args count
+            m_ValueStack.Push(DynValue.NewNumber(args.Count));  // func args count
 
-			m_ExecutionStack.Push(new CallStackItem()
-			{
-				BasePointer = m_ValueStack.Count,
-				Debug_EntryPoint = function.Function.EntryPointByteCodeLocation,
-				ReturnAddress = -1,
-				ClosureScope = function.Function.ClosureContext,
-				CallingSourceRef = SourceRef.GetClrLocation(),
-				Flags = flags
-			});
+            m_ExecutionStack.Push(new CallStackItem()
+            {
+                BasePointer = m_ValueStack.Count,
+                Debug_EntryPoint = function.Function.EntryPointByteCodeLocation,
+                ReturnAddress = -1,
+                ClosureScope = function.Function.ClosureContext,
+                CallingSourceRef = SourceRef.GetClrLocation(),
+                Flags = flags
+            });
 
-			return function.Function.EntryPointByteCodeLocation;
-		}
+            return function.Function.EntryPointByteCodeLocation;
+        }
 
 
-		int m_OwningThreadID = -1;
+        int m_OwningThreadID = -1;
 		int m_ExecutionNesting = 0;
 
 		private void LeaveProcessor()

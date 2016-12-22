@@ -77,7 +77,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call()
 		{
-			return OwnerScript.Call(this);
+			return OwnerScript.Call(DynValue.NewClosure(this));
 		}
 
 		/// <summary>
@@ -88,7 +88,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(params object[] args)
 		{
-			return OwnerScript.Call(this, args);
+			return OwnerScript.Call(DynValue.NewClosure(this), args);
 		}
 
 		/// <summary>
@@ -99,15 +99,26 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(params DynValue[] args)
 		{
-			return OwnerScript.Call(this, args);
+			return OwnerScript.Call(DynValue.NewClosure(this), args);
 		}
 
-
-		/// <summary>
-		/// Gets a delegate wrapping calls to this scripted function
+        /// <summary>
+		/// Calls this function with the specified args
 		/// </summary>
+		/// <param name="args">The arguments (count > 0) to pass to the function. (Argument 0 MUST be empty!)</param>
 		/// <returns></returns>
-		public ScriptFunctionDelegate GetDelegate()
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+		public DynValue PreFormattedCall(IList<DynValue> args)
+        {
+            return OwnerScript.PreFormattedCall(DynValue.NewClosure(this), args);
+        }
+
+
+        /// <summary>
+        /// Gets a delegate wrapping calls to this scripted function
+        /// </summary>
+        /// <returns></returns>
+        public ScriptFunctionDelegate GetDelegate()
 		{
 			return args => this.Call(args).ToObject();
 		}

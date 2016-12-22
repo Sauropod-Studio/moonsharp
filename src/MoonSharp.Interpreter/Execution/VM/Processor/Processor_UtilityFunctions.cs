@@ -4,47 +4,47 @@ namespace MoonSharp.Interpreter.Execution.VM
 {
 	sealed partial class Processor
 	{
-		private DynValue[] Internal_AdjustTuple(IList<DynValue> values)
-		{
-			if (values == null || values.Count == 0)
-				return new DynValue[0];
+        private DynValue[] Internal_AdjustTuple(IList<DynValue> values)
+        {
+            if (values == null || values.Count == 0)
+                return new DynValue[0];
 
-			if (values[values.Count - 1].Type == DataType.Tuple)
-			{
-				int baseLen = values.Count - 1 + values[values.Count - 1].Tuple.Length;
-				DynValue[] result = new DynValue[baseLen];
+            if (values[values.Count - 1].Type == DataType.Tuple)
+            {
+                int baseLen = values.Count - 1 + values[values.Count - 1].Tuple.Length;
+                DynValue[] result = new DynValue[baseLen];
 
-				for (int i = 0; i < values.Count - 1; i++)
-				{
-					result[i] = values[i].ToScalar();
-				}
+                for (int i = 0; i < values.Count - 1; i++)
+                {
+                    result[i] = values[i].ToScalar();
+                }
 
-				for (int i = 0; i < values[values.Count - 1].Tuple.Length; i++)
-				{
-					result[values.Count + i - 1] = values[values.Count - 1].Tuple[i];
-				}
+                for (int i = 0; i < values[values.Count - 1].Tuple.Length; i++)
+                {
+                    result[values.Count + i - 1] = values[values.Count - 1].Tuple[i];
+                }
 
-				if (result[result.Length - 1].Type == DataType.Tuple)
-					return Internal_AdjustTuple(result);
-				else
-					return result;
-			}
-			else
-			{
-				DynValue[] result = new DynValue[values.Count];
+                if (result[result.Length - 1].Type == DataType.Tuple)
+                    return Internal_AdjustTuple(result);
+                else
+                    return result;
+            }
+            else
+            {
+                DynValue[] result = new DynValue[values.Count];
 
-				for (int i = 0; i < values.Count; i++)
-				{
-					result[i] = values[i].ToScalar();
-				}
+                for (int i = 0; i < values.Count; i++)
+                {
+                    result[i] = values[i].ToScalar();
+                }
 
-				return result;
-			}
-		}
+                return result;
+            }
+        }
 
 
 
-		private int Internal_InvokeUnaryMetaMethod(DynValue op1, string eventName, int instructionPtr)
+        private int Internal_InvokeUnaryMetaMethod(DynValue op1, string eventName, int instructionPtr)
 		{
 			DynValue m = null;
 
