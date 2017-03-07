@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using MoonSharp.Interpreter.Interop.RegistrationPolicies;
@@ -60,9 +62,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			}
 
 			Type t = obj.GetType();
-
-			if (obj is bool)
-				return DynValue.NewBoolean((bool)obj);
 
 			if (obj is string || obj is StringBuilder || obj is char)
 				return DynValue.NewString(obj.ToString());
@@ -176,5 +175,74 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 
 
-	}
+
+
+
+
+
+
+        /// <summary>
+        /// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
+        /// </summary>
+        internal static DynValue StructToDynValue<T>(Script script, T obj) where T : struct
+        {
+            DynValue v = TryObjectToSimpleDynValue(script, obj);
+
+            throw ScriptRuntimeException.ConvertObjectFailed(obj);
+        }
+
+        public sealed class StructDynValueBoxer<TIn> where TIn : struct
+        {
+            public static readonly StructDynValueBoxer<TIn> Instance = new StructDynValueBoxer<TIn>();
+            private static Type[] typesToConvertToNumber = new Type[]
+            {
+                typeof(int), typeof(byte), typeof(short), typeof(int), typeof(Decimal),
+                typeof(float), typeof(double), typeof(long)
+            };
+
+            public Func<Script, TIn, DynValue> Create { get; }
+
+            private StructDynValueBoxer()
+            {
+                var t = typeof(TIn);
+                if (t == typeof(bool))
+                {
+                    //TODO to DynValue 1 or 0
+                }
+                else if (typesToConvertToNumber.Contains(t))
+                {
+                    Create = (Script, inValue) => DynValue.NewNumber(StructValueConverter<TIn, double>.Instance.Convert(inValue));
+                }
+                else //TODO optimize this since we know we have a DynBox<T>
+                    Create = (sc, invalue) => DynValue.FromObject(sc, DynBox<TIn>.Request(invalue));
+            }
+        }
+        public sealed class StructValueConverter<TIn, TOut> where TIn : struct where TOut : struct
+        {
+            public static readonly StructValueConverter<TIn, TOut> Instance = new StructValueConverter<TIn, TOut>();
+
+            public Func<TIn, TOut> Convert { get; }
+
+            private StructValueConverter()
+            {
+                var t = typeof(TIn);
+                var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
+                if (typeof(TIn) == typeof(TOut))
+                {
+                    Convert =
+                        Expression.Lambda<Func<TIn, TOut>>(paramExpr,
+                            // this conversion is legal as typeof(TIn) = typeof(TOut)
+                            paramExpr)
+                            .Compile();
+                }
+                else
+                {
+                    var p = Expression.Parameter(typeof(TIn), "in");
+                    var c = Expression.ConvertChecked(p, typeof(TOut));
+                    Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
+                }
+            }
+        }
+
+    }
 }

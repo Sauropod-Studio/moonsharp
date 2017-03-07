@@ -1,15 +1,61 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter
 {
-	/// <summary>
-	/// A class representing a value in a Lua/MoonSharp script.
-	/// </summary>
-	public sealed class DynValue
+    internal class DynBox<T> where T : struct
+    {
+        public const int MAX_POOL_SIZE = 100000;
+        private static Stack<DynBox<T>> _pool = new Stack<DynBox<T>>();
+        public T Value;
+
+        private DynBox(){}
+
+        public static DynBox<T> Request(T t)
+        {
+            var box = Request();
+            box.Value = t;
+            return box;
+        }
+
+        public static DynBox<T> Request()
+        {
+            DynBox<T> box;
+            lock (_pool)
+            {
+                if (_pool.Count > 0)
+                {
+                    box = _pool.Pop();
+                    GC.ReRegisterForFinalize(box);
+                }
+                else
+                {
+                    box = new DynBox<T>();
+                }
+            }
+            return box;
+        }
+
+        ~DynBox()
+        {
+            Value = default(T);
+            lock (_pool)
+            {
+                if (_pool.Count < MAX_POOL_SIZE)
+                    _pool.Push(this);
+            }
+        }
+
+    }
+    /// <summary>
+    /// A class representing a value in a Lua/MoonSharp script.
+    /// </summary>
+    public sealed class DynValue
 	{
         public static int INSTANCE_AMOUNT;
         public const int MAX_POOL_SIZE = 100000;
@@ -488,8 +534,13 @@ namespace MoonSharp.Interpreter
             lock(_pool)
             { 
                 INSTANCE_AMOUNT = MAX_POOL_SIZE;
-	            for (int i = MAX_POOL_SIZE; i > 0; i--)
-	                _pool.Push(new DynValue());
+                for (int i = MAX_POOL_SIZE; i > 0; i--)
+                {
+                    var d = new DynValue();
+                    GC.SuppressFinalize(d);
+                    _pool.Push(d);
+                }
+	                
             }
         }
 
@@ -887,21 +938,35 @@ namespace MoonSharp.Interpreter
 			this.m_Number = num;
 		}
 
-		/// <summary>
-		/// Creates a new DynValue from a CLR object
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="obj">The object.</param>
-		/// <returns></returns>
-		public static DynValue FromObject(Script script, object obj)
-		{
-			return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.ObjectToDynValue(script, obj);
-		}
+        public class FromClass<T> where T : class { }
+        public class FromStruct<T> where T : struct { }
 
-		/// <summary>
-		/// Converts this MoonSharp DynValue to a CLR object.
-		/// </summary>
-		public object ToObject()
+        /// <summary>
+        /// Creates a new DynValue from a CLR object
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <returns></returns>
+        public static DynValue FromObject<T>(Script script, T obj, FromClass<T> _NOTUSED = null) where T : class
+        {
+            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.ObjectToDynValue(script, obj);
+        }
+
+        /// <summary>
+        /// Creates a new DynValue from a CLR ValueType
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <returns></returns>
+        public static DynValue FromObject<T>(Script script, T obj, FromStruct<T> _NOTUSED = null ) where T : struct
+        {
+            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.StructToDynValue<T>(script, obj);
+        }
+
+        /// <summary>
+        /// Converts this MoonSharp DynValue to a CLR object.
+        /// </summary>
+        public object ToObject()
 		{
 			return MoonSharp.Interpreter.Interop.Converters.ScriptToClrConversions.DynValueToObject(this);
 		}
