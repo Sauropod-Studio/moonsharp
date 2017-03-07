@@ -8,54 +8,11 @@ using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter
 {
-    internal class DynBox<T> where T : struct
-    {
-        public const int MAX_POOL_SIZE = 100000;
-        private static Stack<DynBox<T>> _pool = new Stack<DynBox<T>>();
-        public T Value;
 
-        private DynBox(){}
-
-        public static DynBox<T> Request(T t)
-        {
-            var box = Request();
-            box.Value = t;
-            return box;
-        }
-
-        public static DynBox<T> Request()
-        {
-            DynBox<T> box;
-            lock (_pool)
-            {
-                if (_pool.Count > 0)
-                {
-                    box = _pool.Pop();
-                    GC.ReRegisterForFinalize(box);
-                }
-                else
-                {
-                    box = new DynBox<T>();
-                }
-            }
-            return box;
-        }
-
-        ~DynBox()
-        {
-            Value = default(T);
-            lock (_pool)
-            {
-                if (_pool.Count < MAX_POOL_SIZE)
-                    _pool.Push(this);
-            }
-        }
-
-    }
     /// <summary>
     /// A class representing a value in a Lua/MoonSharp script.
     /// </summary>
-    public sealed class DynValue
+    public class DynValue
 	{
         public static int INSTANCE_AMOUNT;
         public const int MAX_POOL_SIZE = 100000;
@@ -133,7 +90,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool ReadOnly { get { return m_ReadOnly; } }
 
-	    private static DynValue Request()
+	    internal static DynValue Request()
 	    {
 	        DynValue d;
             lock (_pool)
@@ -531,16 +488,15 @@ namespace MoonSharp.Interpreter
 
         private static void WarnDynValueCache()
 	    {
-            lock(_pool)
-            { 
-                INSTANCE_AMOUNT = MAX_POOL_SIZE;
-                for (int i = MAX_POOL_SIZE; i > 0; i--)
+            INSTANCE_AMOUNT = MAX_POOL_SIZE;
+            for (int i = MAX_POOL_SIZE; i > 0; i--)
+            {
+                var d = new DynValue();
+                GC.SuppressFinalize(d);
+                lock (_pool)
                 {
-                    var d = new DynValue();
-                    GC.SuppressFinalize(d);
                     _pool.Push(d);
                 }
-	                
             }
         }
 
@@ -867,14 +823,12 @@ namespace MoonSharp.Interpreter
 			this.m_HashCode = -1;
 		}
 
-
-
-		/// <summary>
-		/// Gets the length of a string or table value.
-		/// </summary>
-		/// <returns></returns>
-		/// <exception cref="ScriptRuntimeException">Value is not a table or string.</exception>
-		public DynValue GetLength()
+        /// <summary>
+        /// Gets the length of a string or table value.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="ScriptRuntimeException">Value is not a table or string.</exception>
+        public DynValue GetLength()
 		{
 			if (this.Type == DataType.Table)
 				return DynValue.NewNumber(this.Table.Length);
@@ -938,29 +892,15 @@ namespace MoonSharp.Interpreter
 			this.m_Number = num;
 		}
 
-        public class FromClass<T> where T : class { }
-        public class FromStruct<T> where T : struct { }
-
         /// <summary>
-        /// Creates a new DynValue from a CLR object
+        /// Creates a new DynValue from a CLR genetic value
         /// </summary>
         /// <param name="script">The script.</param>
         /// <param name="obj">The object.</param>
         /// <returns></returns>
-        public static DynValue FromObject<T>(Script script, T obj, FromClass<T> _NOTUSED = null) where T : class
+        public static DynValue FromObject<T>(Script script, T value)
         {
-            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.ObjectToDynValue(script, obj);
-        }
-
-        /// <summary>
-        /// Creates a new DynValue from a CLR ValueType
-        /// </summary>
-        /// <param name="script">The script.</param>
-        /// <param name="obj">The object.</param>
-        /// <returns></returns>
-        public static DynValue FromObject<T>(Script script, T obj, FromStruct<T> _NOTUSED = null ) where T : struct
-        {
-            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.StructToDynValue<T>(script, obj);
+            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.GenericToDynValue<T>(script, value);
         }
 
         /// <summary>
@@ -1065,8 +1005,12 @@ namespace MoonSharp.Interpreter
 			if (v.IsNil())
 				return default(T);
 
-			object o = v.UserData.Object;
-			if (o != null && o is T)
+			T o = v.UserData.Get<T>();
+		    if (!typeof(T).IsValueType && )
+		    {
+		        var r = v as T;
+		    }
+			if (o != default(T) && o is T)
 				return (T)o;
 
 			throw ScriptRuntimeException.BadArgumentUserData(argNum, funcName, typeof(T), o, allowNil);

@@ -48,7 +48,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		private object Proxy(object obj)
+		private UserData Proxy(UserData obj)
 		{
 			return obj != null ? m_ProxyFactory.CreateProxyObject(obj) : null;
 		}
@@ -61,7 +61,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="index">The index.</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public DynValue Index(Script script, object obj, DynValue index, bool isDirectIndexing)
+		public DynValue Index(Script script, UserData obj, DynValue index, bool isDirectIndexing)
 		{
 			return m_ProxyDescriptor.Index(script, Proxy(obj), index, isDirectIndexing);
 		}
@@ -75,7 +75,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="value">The value to be set</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public bool SetIndex(Script script, object obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public bool SetIndex(Script script, UserData obj, DynValue index, DynValue value, bool isDirectIndexing)
 		{
 			return m_ProxyDescriptor.SetIndex(script, Proxy(obj), index, value, isDirectIndexing);
 		}
@@ -85,7 +85,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public string AsString(object obj)
+		public string AsString(UserData obj)
 		{
 			return m_ProxyDescriptor.AsString(Proxy(obj));
 		}

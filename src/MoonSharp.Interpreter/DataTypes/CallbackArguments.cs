@@ -139,6 +139,7 @@ namespace MoonSharp.Interpreter
 			return this[argNum].CheckType(funcName, type, argNum, allowNil ? TypeValidationFlags.AllowNil | TypeValidationFlags.AutoConvert : TypeValidationFlags.AutoConvert);
 		}
 
+        //TODO
 		/// <summary>
 		/// Gets the specified argument as as an argument of the specified user data type. If not possible,
 		/// an exception is raised.

@@ -1244,7 +1244,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 				{
 					UserData ud = obj.UserData;
 
-					if (!ud.Descriptor.SetIndex(this.GetScript(), ud.Object, originalIdx, value, isNameIndex))
+					if (!ud.Descriptor.SetIndex(this.GetScript(), ud, originalIdx, value, isNameIndex))
 					{
 						throw ScriptRuntimeException.UserDataMissingField(ud.Descriptor.Name, idx.String);
 					}

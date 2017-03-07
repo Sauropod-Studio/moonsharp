@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 using MoonSharp.Interpreter.Interop;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
+using MoonSharp.Interpreter.Interop.Converters;
 using MoonSharp.Interpreter.Interop.RegistrationPolicies;
 using MoonSharp.Interpreter.Interop.StandardDescriptors;
 using MoonSharp.Interpreter.Interop.UserDataRegistries;
@@ -11,11 +13,60 @@ using MoonSharp.Interpreter.Serialization.Json;
 
 namespace MoonSharp.Interpreter
 {
-	/// <summary>
-	/// Class exposing C# objects as Lua userdata.
-	/// For efficiency, a global registry of types is maintained, instead of a per-script one.
-	/// </summary>
-	public class UserData : RefIdObject
+
+    public interface IUserData
+    {
+        bool TryGet<T>(out T t);
+        bool TrySet<T>(T t);
+        DynValue UserValue { get; set; }
+        IUserDataDescriptor Descriptor { get; }
+    }
+
+    public class UserDataStruct<T> : RefIdObject, IUserData
+    {
+        private T t;
+
+        public IUserDataDescriptor Descriptor
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public DynValue UserValue
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+
+            set
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public bool TryGet<T>(out T t)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool TrySet<T>(T t)
+        {
+            throw new NotImplementedException();
+        }
+
+
+    }
+
+
+
+    /// <summary>
+    /// Class exposing C# objects as Lua userdata.
+    /// For efficiency, a global registry of types is maintained, instead of a per-script one.
+    /// </summary>
+    public class UserData : RefIdObject, IUserData
 	{
         public static int INSTANCE_AMOUNT;
         public const int MAX_POOL_SIZE = 50000;
@@ -38,9 +89,37 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public IUserDataDescriptor Descriptor { get; private set; }
 
+	    public bool TryGet<T>(out T t)
+	    {
+	        bool success = false;
+	        if (Object is T)
+	        {
+	            t = (T) Object;
+	            success = true;
+	        }
+	        else
+	        {
+	            t = default(T);
+	        }
+	        return success;
+	    }
 
+	    public bool TrySet<T>(T t)
+	    {
+            bool success = false;
+            if (Object is T)
+            {
+                Object = t;
+                success = true;
+            }
+            else
+            {
+                t = default(T);
+            }
+            return success;
+        }
 
-		static UserData()
+        static UserData()
 		{
             RegistrationPolicy = InteropRegistrationPolicy.Default;
 
@@ -95,10 +174,12 @@ namespace MoonSharp.Interpreter
             UserValue = null;
             Object = null;
             Descriptor = null;
-            lock (_pool)
-            {
-                if (_pool.Count < MAX_POOL_SIZE)
+            if (_pool.Count < MAX_POOL_SIZE)
+            { 
+                lock (_pool)
+                {
                     _pool.Push(this);
+                }
             }
         }
 
@@ -258,8 +339,12 @@ namespace MoonSharp.Interpreter
 		/// <param name="o">The object</param>
 		/// <param name="descr">The descriptor.</param>
 		/// <returns></returns>
-		public static DynValue Create(object o, IUserDataDescriptor descr)
+		public static DynValue Create<T>(T o, IUserDataDescriptor descr)
 		{
+		    if (typeof (T).IsValueType)
+		    {
+		        
+		    }
 		    var userData = UserData.Request();
             userData.Descriptor = descr;
 		    userData.Object = o;
@@ -272,14 +357,13 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="o">The object</param>
 		/// <returns></returns>
-		public static DynValue Create(object o)
+		public static DynValue Create<T>(T o)
 		{
 			var descr = GetDescriptorForObject(o);
 			if (descr == null)
 			{
-				if (o is Type)
-					return CreateStatic((Type)o);
-
+                if (o is Type)
+					return CreateStatic(ValueConverter<T, Type>.Instance.Convert(o));
 				return null;
 			}
 

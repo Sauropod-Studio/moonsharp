@@ -7,10 +7,10 @@ namespace MoonSharp.Interpreter.Interop
 	/// </summary>
 	public interface IProxyFactory
 	{
-		/// <summary>
-		/// Takes an instance of a target object and returns a proxy object wrapping it
-		/// </summary>
-		object CreateProxyObject(object o);
+        /// <summary>
+        /// Takes an instance of a target object and returns a proxy object wrapping it
+        /// </summary>
+        UserData CreateProxyObject(UserData o);
 		/// <summary>
 		/// Gets the proxied type
 		/// </summary>
