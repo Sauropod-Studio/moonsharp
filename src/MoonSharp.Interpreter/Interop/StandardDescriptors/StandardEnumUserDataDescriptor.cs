@@ -107,32 +107,40 @@ namespace MoonSharp.Interpreter.Interop
 			if (dv.Type == DataType.Number)
 				return (long)dv.Number;
 
-			if ((dv.Type != DataType.UserData) || (dv.UserData.Descriptor != this) || (dv.UserData.Object == null))
+			if ((dv.Type != DataType.UserData) || (dv.UserData.Descriptor != this) || (!dv.UserData.HasValue()))
 				throw new ScriptRuntimeException("Enum userdata or number expected, or enum is not of the correct type.");
 
-			return m_EnumToLong(dv.UserData.Object);
-		}
+            long unsignedValue;
+            if (!dv.UserData.TryGet<long>(out unsignedValue))
+                throw new ScriptRuntimeException("Enum userdata or number expected, or enum is not of the correct type.");
 
-		/// <summary>
-		/// Gets the value of the enum as a ulong
-		/// </summary>
-		private ulong GetValueUnsigned(DynValue dv)
+            return unsignedValue;
+        }
+
+        /// <summary>
+        /// Gets the value of the enum as a ulong
+        /// </summary>
+        private ulong GetValueUnsigned(DynValue dv)
 		{
 			CreateUnsignedConversionFunctions();
 
 			if (dv.Type == DataType.Number)
 				return (ulong)dv.Number;
 
-			if ((dv.Type != DataType.UserData) || (dv.UserData.Descriptor != this) || (dv.UserData.Object == null))
+            if ((dv.Type != DataType.UserData) || (dv.UserData.Descriptor != this) || (!dv.UserData.HasValue()))
 				throw new ScriptRuntimeException("Enum userdata or number expected, or enum is not of the correct type.");
 
-			return m_EnumToULong(dv.UserData.Object);
+            ulong unsignedValue;
+		    if (!dv.UserData.TryGet<ulong>(out unsignedValue))
+		        throw new ScriptRuntimeException("Enum userdata or number expected, or enum is not of the correct type.");
+            
+		    return unsignedValue;
 		}
 
-		/// <summary>
-		/// Creates an enum value from a long
-		/// </summary>
-		private DynValue CreateValueSigned(long value)
+        /// <summary>
+        /// Creates an enum value from a long
+        /// </summary>
+        private DynValue CreateValueSigned(long value)
 		{
 			CreateSignedConversionFunctions();
 			return UserData.Create(m_LongToEnum(value), this);

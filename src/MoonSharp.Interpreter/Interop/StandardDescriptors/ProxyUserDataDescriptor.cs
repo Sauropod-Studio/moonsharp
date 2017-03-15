@@ -48,7 +48,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		private UserData Proxy(UserData obj)
+		private UserData Proxy(IUserData obj)
 		{
 			return obj != null ? m_ProxyFactory.CreateProxyObject(obj) : null;
 		}
@@ -61,7 +61,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="index">The index.</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public DynValue Index(Script script, UserData obj, DynValue index, bool isDirectIndexing)
+		public DynValue Index(Script script, IUserData obj, DynValue index, bool isDirectIndexing)
 		{
 			return m_ProxyDescriptor.Index(script, Proxy(obj), index, isDirectIndexing);
 		}
@@ -75,7 +75,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="value">The value to be set</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public bool SetIndex(Script script, UserData obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public bool SetIndex(Script script, IUserData obj, DynValue index, DynValue value, bool isDirectIndexing)
 		{
 			return m_ProxyDescriptor.SetIndex(script, Proxy(obj), index, value, isDirectIndexing);
 		}
@@ -85,7 +85,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public string AsString(UserData obj)
+		public string AsString(IUserData obj)
 		{
 			return m_ProxyDescriptor.AsString(Proxy(obj));
 		}
@@ -104,7 +104,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="obj">The object (null if a static request is done)</param>
 		/// <param name="metaname">The name of the metamember.</param>
 		/// <returns></returns>
-		public DynValue MetaIndex(Script script, object obj, string metaname)
+		public DynValue MetaIndex(Script script, IUserData obj, string metaname)
 		{
 			return m_ProxyDescriptor.MetaIndex(script, Proxy(obj), metaname);
 		}

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using MoonSharp.Interpreter.Interop;
 using MoonSharp.Interpreter.Interop.BasicDescriptors;
 using MoonSharp.Interpreter.Interop.Converters;
@@ -16,171 +15,194 @@ namespace MoonSharp.Interpreter
 
     public interface IUserData
     {
-        bool TryGet<T>(out T t);
-        bool TrySet<T>(T t);
+        bool TryGet<T>(out T param);
+        bool TrySet<T>(T param);
         DynValue UserValue { get; set; }
-        IUserDataDescriptor Descriptor { get; }
+        IUserDataDescriptor Descriptor { get; set; }
+        Type UnderlyingType { get;}
+        bool HasValue();
+        string AsString();
     }
 
-    public class UserDataStruct<T> : RefIdObject, IUserData
+    public sealed class UserDataStruct<T> : RefIdObject, IUserData
     {
-        private T t;
-
-        public IUserDataDescriptor Descriptor
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public DynValue UserValue
-        {
-            get
-            {
-                throw new NotImplementedException();
-            }
-
-            set
-            {
-                throw new NotImplementedException();
-            }
-        }
-
-        public bool TryGet<T>(out T t)
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool TrySet<T>(T t)
-        {
-            throw new NotImplementedException();
-        }
-
-
-    }
-
-
-
-    /// <summary>
-    /// Class exposing C# objects as Lua userdata.
-    /// For efficiency, a global registry of types is maintained, instead of a per-script one.
-    /// </summary>
-    public class UserData : RefIdObject, IUserData
-	{
         public static int INSTANCE_AMOUNT;
-        public const int MAX_POOL_SIZE = 50000;
+        public const int MAX_POOL_SIZE = 10000;
 
-        private static Stack<UserData> _pool = new Stack<UserData>(MAX_POOL_SIZE);
+        private static Stack<UserDataStruct<T>> _pool = new Stack<UserDataStruct<T>>(MAX_POOL_SIZE);
 
-        /// <summary>
-        /// Gets or sets the "uservalue". See debug.getuservalue and debug.setuservalue.
-        /// http://www.lua.org/manual/5.2/manual.html#pdf-debug.setuservalue
-        /// </summary>
-        public DynValue UserValue { get; set; }
-
-		/// <summary>
-		/// Gets the object associated to this userdata (null for statics)
-		/// </summary>
-		public object Object { get; private set; }
-
-		/// <summary>
-		/// Gets the type descriptor of this userdata
-		/// </summary>
-		public IUserDataDescriptor Descriptor { get; private set; }
-
-	    public bool TryGet<T>(out T t)
-	    {
-	        bool success = false;
-	        if (Object is T)
-	        {
-	            t = (T) Object;
-	            success = true;
-	        }
-	        else
-	        {
-	            t = default(T);
-	        }
-	        return success;
-	    }
-
-	    public bool TrySet<T>(T t)
-	    {
-            bool success = false;
-            if (Object is T)
-            {
-                Object = t;
-                success = true;
-            }
-            else
-            {
-                t = default(T);
-            }
-            return success;
-        }
-
-        static UserData()
-		{
-            RegistrationPolicy = InteropRegistrationPolicy.Default;
-
-			RegisterType<EventFacade>(InteropAccessMode.NoReflectionAllowed);
-			RegisterType<AnonWrapper>(InteropAccessMode.HideMembers);
-			RegisterType<EnumerableWrapper>(InteropAccessMode.NoReflectionAllowed);
-			RegisterType<JsonNull>(InteropAccessMode.Reflection);
-
-			DefaultAccessMode = InteropAccessMode.LazyOptimized;
-
-            new System.Threading.Thread(() => WarnDynValueCache()).Start();
-        }
-
-        private static void WarnDynValueCache()
+        public static UserDataStruct<T> Request()
         {
-            lock (_pool)
-            {
-                INSTANCE_AMOUNT = MAX_POOL_SIZE;
-                for (int i = MAX_POOL_SIZE; i > 0; i--)
-                    _pool.Push(new UserData());
-            }
-        }
-
-        private UserData()
-        {
-            // This type can only be instantiated using one of the Create methods
-        }
-
-        private static UserData Request()
-        {
-            UserData d;
+            UserDataStruct<T> ud;
             lock (_pool)
             {
                 if (_pool.Count > 0)
                 {
-                    d = _pool.Pop();
-                    GC.ReRegisterForFinalize(d);
+                    ud = _pool.Pop();
+                    GC.ReRegisterForFinalize(ud);
                 }
                 else
                 {
-                    d = new UserData();
+                    ud = new UserDataStruct<T>();
                     INSTANCE_AMOUNT++;
                 }
             }
-            return d;
-            // This type can only be instantiated using one of the Create methods
+            return ud;
         }
 
-
-        ~UserData()
+        ~UserDataStruct()
         {
             UserValue = null;
-            Object = null;
+            t = default(T);
             Descriptor = null;
             if (_pool.Count < MAX_POOL_SIZE)
-            { 
+            {
                 lock (_pool)
                 {
                     _pool.Push(this);
                 }
             }
+        }
+
+        private T t;
+
+        public IUserDataDescriptor Descriptor { get; set; }
+
+        public DynValue UserValue { get; set; }
+
+        public Type UnderlyingType { get { return typeof(T); } }
+
+        public string AsString() { return Descriptor.AsString(t); }
+
+        public bool TryGet<TParam>(out TParam param)
+        {
+            bool success = false;
+            if (this.t is TParam)
+            {
+                param = ValueConverter<T, TParam>.Instance.Convert(t);
+                success = true;
+            }
+            else
+            {
+                param = default(TParam);
+            }
+            return success;
+        }
+
+        public bool TrySet<TParam>(TParam param)
+        {
+            bool success = false;
+            if (param is T)
+            {
+                t = ValueConverter<TParam, T>.Instance.Convert(param);
+                success = true;
+            }
+            return success;
+        }
+
+        public bool HasValue() { return true; }
+    }
+
+
+
+    public sealed class UserDataRef : RefIdObject, IUserData
+    {
+        public static int INSTANCE_AMOUNT;
+        public const int MAX_POOL_SIZE = 10000;
+
+        private static Stack<UserDataRef> _pool = new Stack<UserDataRef>(MAX_POOL_SIZE);
+
+        public static UserDataRef Request()
+        {
+            UserDataRef ud;
+            lock (_pool)
+            {
+                if (_pool.Count > 0)
+                {
+                    ud = _pool.Pop();
+                    GC.ReRegisterForFinalize(ud);
+                }
+                else
+                {
+                    ud = new UserDataRef();
+                    INSTANCE_AMOUNT++;
+                }
+            }
+            return ud;
+        }
+
+        ~UserDataRef()
+        {
+            UserValue = null;
+            _object = null;
+            Descriptor = null;
+            lock (_pool)
+            {
+                if (_pool.Count < MAX_POOL_SIZE)
+                    _pool.Push(this);
+            }
+        }
+
+        private object _object;
+
+        public IUserDataDescriptor Descriptor { get; set; }
+
+        public DynValue UserValue { get; set; }
+
+        public Type UnderlyingType { get { return _object.GetType(); } }
+
+        public bool HasValue() { return _object != null; }
+        public string AsString() { return Descriptor.AsString(_object); }
+
+        public bool TryGet<TParam>(out TParam param)
+        {
+            bool success = false;
+            if (_object is TParam)
+            {
+                param = (TParam)_object;
+                success = true;
+            }
+            else
+            {
+                param = default(TParam);
+            }
+            return success;
+        }
+
+        public bool TrySet<TParam>(TParam param)
+        {
+            _object = param;
+            return true;
+        }
+
+        internal static void WarnDynValueCache()
+        {
+            lock (_pool)
+            {
+                INSTANCE_AMOUNT = MAX_POOL_SIZE;
+                for (int i = MAX_POOL_SIZE; i > 0; i--)
+                    _pool.Push(new UserDataRef());
+            }
+        }
+    }
+    /// <summary>
+    /// Class exposing C# objects as Lua userdata.
+    /// For efficiency, a global registry of types is maintained, instead of a per-script one.
+    /// </summary>
+    public static class UserData
+	{
+        static UserData()
+        {
+            RegistrationPolicy = InteropRegistrationPolicy.Default;
+
+            RegisterType<EventFacade>(InteropAccessMode.NoReflectionAllowed);
+            RegisterType<AnonWrapper>(InteropAccessMode.HideMembers);
+            RegisterType<EnumerableWrapper>(InteropAccessMode.NoReflectionAllowed);
+            RegisterType<JsonNull>(InteropAccessMode.Reflection);
+
+            DefaultAccessMode = InteropAccessMode.LazyOptimized;
+
+            new System.Threading.Thread(() => UserDataRef.WarnDynValueCache()).Start();
         }
 
         /// <summary>
@@ -341,15 +363,20 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static DynValue Create<T>(T o, IUserDataDescriptor descr)
 		{
+		    IUserData userData;
+
 		    if (typeof (T).IsValueType)
 		    {
-		        
+		        userData = UserDataStruct<T>.Request();
 		    }
-		    var userData = UserData.Request();
+		    else
+		    {
+                userData = UserDataRef.Request();
+            }
             userData.Descriptor = descr;
-		    userData.Object = o;
+            userData.TrySet(o);
 
-		    return DynValue.NewUserData(userData);
+            return DynValue.NewUserData(userData);
 		}
 
 		/// <summary>
@@ -380,9 +407,8 @@ namespace MoonSharp.Interpreter
 		    if (descr == null)
                 return null;
 
-		    var userData = UserData.Request();
+		    var userData = UserDataRef.Request();
 		    userData.Descriptor = descr;
-		    userData.Object = null;
 		    return DynValue.NewUserData(userData);
 		}
 
@@ -487,9 +513,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="o">The object.</param>
 		/// <returns></returns>
-		public static IUserDataDescriptor GetDescriptorForObject(object o)
+		public static IUserDataDescriptor GetDescriptorForObject<T>(T t)
 		{
-			return TypeDescriptorRegistry.GetDescriptorForType(o.GetType(), true);
+			return TypeDescriptorRegistry.GetDescriptorForType(t.GetType(), true);
 		}
 
 

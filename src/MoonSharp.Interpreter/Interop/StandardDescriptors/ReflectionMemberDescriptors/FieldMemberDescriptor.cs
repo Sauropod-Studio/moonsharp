@@ -12,7 +12,7 @@ namespace MoonSharp.Interpreter.Interop
 	/// <summary>
 	/// Class providing easier marshalling of CLR fields
 	/// </summary>
-	public class FieldMemberDescriptor : IMemberDescriptor, IOptimizableDescriptor, IWireableDescriptor
+	public class FieldMemberDescriptor<TObj> : IMemberDescriptor, IOptimizableDescriptor, IWireableDescriptor
 	{
 		/// <summary>
 		/// Gets the FieldInfo got by reflection
@@ -42,7 +42,7 @@ namespace MoonSharp.Interpreter.Interop
 
 		object m_ConstValue = null;
 
-		Func<object, object> m_OptimizedGetter = null;
+		Func<Script, TObj, DynValue> m_OptimizedGetter = null;
 
 
 		/// <summary>
@@ -88,7 +88,7 @@ namespace MoonSharp.Interpreter.Interop
 
 			if (AccessMode == InteropAccessMode.Preoptimized)
 			{
-				this.OptimizeGetter();
+				this.OptimizeGetter(fi);
 			}
 		}
 
@@ -99,32 +99,31 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public DynValue GetValue(Script script, object obj)
+		public DynValue GetValue<TObj>(Script script, TObj objWithField)
 		{
-			this.CheckAccess(MemberDescriptorAccess.CanRead, obj);
+			this.CheckAccess(MemberDescriptorAccess.CanRead, objWithField);
 
-			// optimization+workaround of Unity bug.. 
-			if (IsConst)
+            if (m_OptimizedGetter != null)
+                return m_OptimizedGetter(script, objWithField);
+
+            // optimization+workaround of Unity bug.. 
+            if (IsConst)
 				return ClrToScriptConversions.ObjectToDynValue(script, m_ConstValue);
 
-			if (AccessMode == InteropAccessMode.LazyOptimized && m_OptimizedGetter == null)
-				OptimizeGetter();
+		    if (AccessMode == InteropAccessMode.LazyOptimized && m_OptimizedGetter == null)
+		    {
+                OptimizeGetter(FieldInfo);
 
-			object result = null;
+                if (m_OptimizedGetter != null)
+                    return m_OptimizedGetter(script, objWithField);
+            }
 
-			if (m_OptimizedGetter != null)
-				result = m_OptimizedGetter(obj);
-			else
-				result = FieldInfo.GetValue(obj);
-
+            object result = FieldInfo.GetValue(objWithField);
 			return ClrToScriptConversions.ObjectToDynValue(script, result);
 		}
 
-		internal void OptimizeGetter()
+		internal void OptimizeGetter(FieldInfo fi)
 		{
-			if (this.IsConst)
-				return;
-
 			using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
 			{
 				if (IsStatic)
@@ -133,19 +132,23 @@ namespace MoonSharp.Interpreter.Interop
 					var propAccess = Expression.Field(null, FieldInfo);
 					var castPropAccess = Expression.Convert(propAccess, typeof(object));
 					var lambda = Expression.Lambda<Func<object, object>>(castPropAccess, paramExp);
-					Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
+
+                    Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
 				}
 				else
-				{
-					var paramExp = Expression.Parameter(typeof(object), "obj");
-					var castParamExp = Expression.Convert(paramExp, this.FieldInfo.DeclaringType);
-					var propAccess = Expression.Field(castParamExp, FieldInfo);
-					var castPropAccess = Expression.Convert(propAccess, typeof(object));
-					var lambda = Expression.Lambda<Func<object, object>>(castPropAccess, paramExp);
-					Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
-				}
-			}
-		}
+                {
+                    var param1 = Expression.Parameter(typeof(Script), "script");
+                    var param2 = Expression.Parameter(fi.DeclaringType, "obj");
+                    var fiGetValue = Expression.Field(param2, fi);
+                    var objToDynValueCall = Expression.Call(typeof (ClrToScriptConversions).GetMethod("ObjectToDynValue").MakeGenericMethod(typeof(Script),fi.FieldType), param1, fiGetValue);
+                    var lambda = Expression.Lambda<Func<Script, TObj, DynValue>>(objToDynValueCall, param1, param2);
+                    Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
+
+                    // We want something that behaves like this:
+                    m_OptimizedGetter = (Script sc, TObj obj) => ClrToScriptConversions.ObjectToDynValue(sc, fi.GetValue(obj));
+                }
+            }
+        }
 
 		/// <summary>
 		/// Sets the value of the property
@@ -153,7 +156,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object.</param>
 		/// <param name="v">The value to set.</param>
-		public void SetValue(Script script, object obj, DynValue v)
+		public void SetValue<TObj>(Script script, TObj obj, DynValue v)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanWrite, obj);
 

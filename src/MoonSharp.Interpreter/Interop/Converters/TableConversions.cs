@@ -89,15 +89,15 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		internal static object ConvertTableToType(Table table, Type t)
 		{
 			if (Framework.Do.IsAssignableFrom(t, typeof(Dictionary<object, object>)))
-				return TableToDictionary<object, object>(table, v => v.ToObject(), v => v.ToObject());
+				return TableToDictionary<object, object>(table, v => v.ToObject<object>(), v => v.ToObject<object>());
 			else if (Framework.Do.IsAssignableFrom(t, typeof(Dictionary<DynValue, DynValue>)))
 				return TableToDictionary<DynValue, DynValue>(table, v => v, v => v);
 			else if (Framework.Do.IsAssignableFrom(t, typeof(List<object>)))
-				return TableToList<object>(table, v => v.ToObject());
+				return TableToList<object>(table, v => v.ToObject<object>());
 			else if (Framework.Do.IsAssignableFrom(t, typeof(List<DynValue>)))
 				return TableToList<DynValue>(table, v => v);
 			else if (Framework.Do.IsAssignableFrom(t, typeof(object[])))
-				return TableToList<object>(table, v => v.ToObject()).ToArray();
+				return TableToList<object>(table, v => v.ToObject<object>()).ToArray();
 			else if (Framework.Do.IsAssignableFrom(t, typeof(DynValue[])))
 				return TableToList<DynValue>(table, v => v).ToArray();
 

@@ -39,7 +39,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			return null;
 		}
 
-
 		/// <summary>
 		/// Tries to convert a CLR object to a MoonSharp value, using "simple" logic.
 		/// Does NOT throw on failure.
@@ -100,7 +99,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		/// <summary>
 		/// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
 		/// </summary>
-		internal static DynValue ObjectToDynValue(Script script, object obj)
+		internal static DynValue ObjectToDynValue<T>(Script script, T obj)
 		{
 			DynValue v = TryObjectToSimpleDynValue(script, obj);
 
@@ -119,11 +118,11 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (v != null) return v;
 
 			if (obj is Delegate)
-				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)obj));
+				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)(object)obj));
 
 			if (obj is MethodInfo)
 			{
-				MethodInfo mi = (MethodInfo)obj;
+				MethodInfo mi = (MethodInfo)(object)obj;
 
 				if (mi.IsStatic)
 				{
@@ -174,13 +173,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		}
 
 
-
-
-
-
-
-
-
         /// <summary>
         /// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
         /// </summary>
@@ -191,58 +183,31 @@ namespace MoonSharp.Interpreter.Interop.Converters
             throw ScriptRuntimeException.ConvertObjectFailed(obj);
         }
 
-        public sealed class StructDynValueBoxer<TIn> where TIn : struct
+    }
+    public sealed class ValueConverter<TIn, TOut>
+    {
+        public static readonly ValueConverter<TIn, TOut> Instance = new ValueConverter<TIn, TOut>();
+
+        public Func<TIn, TOut> Convert { get; }
+
+        private ValueConverter()
         {
-            public static readonly StructDynValueBoxer<TIn> Instance = new StructDynValueBoxer<TIn>();
-            private static Type[] typesToConvertToNumber = new Type[]
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
+            if (typeof(TIn) == typeof(TOut))
             {
-                typeof(int), typeof(byte), typeof(short), typeof(int), typeof(Decimal),
-                typeof(float), typeof(double), typeof(long)
-            };
-
-            public Func<Script, TIn, DynValue> Create { get; }
-
-            private StructDynValueBoxer()
+                Convert =
+                    Expression.Lambda<Func<TIn, TOut>>(paramExpr,
+                        // this conversion is legal as typeof(TIn) = typeof(TOut)
+                        paramExpr)
+                        .Compile();
+            }
+            else
             {
-                var t = typeof(TIn);
-                if (t == typeof(bool))
-                {
-                    //TODO to DynValue 1 or 0
-                }
-                else if (typesToConvertToNumber.Contains(t))
-                {
-                    Create = (Script, inValue) => DynValue.NewNumber(StructValueConverter<TIn, double>.Instance.Convert(inValue));
-                }
-                else //TODO optimize this since we know we have a DynBox<T>
-                    Create = (sc, invalue) => DynValue.FromObject(sc, DynBox<TIn>.Request(invalue));
+                var p = Expression.Parameter(typeof(TIn), "in");
+                var c = Expression.ConvertChecked(p, typeof(TOut));
+                Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
             }
         }
-        public sealed class StructValueConverter<TIn, TOut> where TIn : struct where TOut : struct
-        {
-            public static readonly StructValueConverter<TIn, TOut> Instance = new StructValueConverter<TIn, TOut>();
-
-            public Func<TIn, TOut> Convert { get; }
-
-            private StructValueConverter()
-            {
-                var t = typeof(TIn);
-                var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
-                if (typeof(TIn) == typeof(TOut))
-                {
-                    Convert =
-                        Expression.Lambda<Func<TIn, TOut>>(paramExpr,
-                            // this conversion is legal as typeof(TIn) = typeof(TOut)
-                            paramExpr)
-                            .Compile();
-                }
-                else
-                {
-                    var p = Expression.Parameter(typeof(TIn), "in");
-                    var c = Expression.ConvertChecked(p, typeof(TOut));
-                    Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
-                }
-            }
-        }
-
     }
 }

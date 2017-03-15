@@ -60,7 +60,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="index">The index.</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public DynValue Index(Script script, object obj, DynValue index, bool isNameIndex)
+		public DynValue Index(Script script, IUserData obj, DynValue index, bool isNameIndex)
 		{
 			foreach (IUserDataDescriptor dd in m_Descriptors)
 			{
