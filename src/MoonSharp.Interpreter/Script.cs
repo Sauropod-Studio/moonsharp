@@ -36,6 +36,7 @@ namespace MoonSharp.Interpreter
 		Table m_GlobalTable;
 		IDebugger m_Debugger;
 		Table[] m_TypeMetatables = new Table[(int)LuaTypeExtensions.MaxMetaTypes];
+        static DynValue[] _emptyDynList = new DynValue[0];
 
 		/// <summary>
 		/// Initializes the <see cref="Script"/> class.
@@ -410,7 +411,7 @@ namespace MoonSharp.Interpreter
 				}
 				else
 				{
-					c = new Closure(this, address, new SymbolRef[0], new DynValue[0]);
+					c = new Closure(this, address, new SymbolRef[0], _emptyDynList);
 				}
 			}
 			else
@@ -433,19 +434,6 @@ namespace MoonSharp.Interpreter
 		/// Calls the specified function.
 		/// </summary>
 		/// <param name="function">The Lua/MoonSharp function to be called</param>
-		/// <returns>
-		/// The return value(s) of the function call.
-		/// </returns>
-		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(DynValue function)
-		{
-			return Call(function, new DynValue[0]);
-		}
-
-		/// <summary>
-		/// Calls the specified function.
-		/// </summary>
-		/// <param name="function">The Lua/MoonSharp function to be called</param>
 		/// <param name="args">The arguments to pass to the function.</param>
 		/// <returns>
 		/// The return value(s) of the function call.
@@ -453,12 +441,54 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(DynValue function, params DynValue[] args)
 		{
-            return PreFormattedCall(function, args);
+            return Call(function, args);
 
         }
 
         /// <summary>
-		/// Calls the specified function without leak. Make sure to leave the first element of the list empty!
+        /// Calls the specified function.
+        /// </summary>
+        /// <param name="function">The Lua/MoonSharp function to be called</param>
+        /// <param name="args">The arguments to pass to the function.</param>
+        /// <returns>
+        /// The return value(s) of the function call.
+        /// </returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue function, params object[] args)
+        {
+            DynValue[] dargs = new DynValue[args.Length];
+
+            for (int i = 0; i < dargs.Length; i++)
+                dargs[i] = DynValue.FromObject(this, args[i]);
+
+            return Call(function, dargs);
+        }
+
+        /// <summary>
+        /// Calls the specified function.
+        /// </summary>
+        /// <param name="function">The Lua/MoonSharp function to be called</param>
+        /// <returns></returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(object function)
+        {
+            return Call(DynValue.FromObject(this, function));
+        }
+
+        /// <summary>
+        /// Calls the specified function.
+        /// </summary>
+        /// <param name="function">The Lua/MoonSharp function to be called </param>
+        /// <param name="args">The arguments to pass to the function.</param>
+        /// <returns></returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(object function, params object[] args)
+        {
+            return Call(DynValue.FromObject(this, function), args);
+        }
+
+        /// <summary>
+		/// Calls the specified function without leak.
 		/// </summary>
 		/// <param name="function">The Lua/MoonSharp function to be called</param>
 		/// <param name="args">The arguments to pass to the function.</param>
@@ -466,7 +496,7 @@ namespace MoonSharp.Interpreter
 		/// The return value(s) of the function call.
 		/// </returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue PreFormattedCall(DynValue function, IList<DynValue> args)
+		public DynValue Call(DynValue function, IList<DynValue> args)
         {
             //this.CheckScriptOwnership(function);
             //this.CheckScriptOwnership(args);
@@ -499,46 +529,99 @@ namespace MoonSharp.Interpreter
         }
 
         /// <summary>
-        /// Calls the specified function.
-        /// </summary>
-        /// <param name="function">The Lua/MoonSharp function to be called</param>
-        /// <param name="args">The arguments to pass to the function.</param>
-        /// <returns>
-        /// The return value(s) of the function call.
-        /// </returns>
-        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-        public DynValue Call(DynValue function, params object[] args)
-		{
-			DynValue[] dargs = new DynValue[args.Length];
-
-			for (int i = 0; i < dargs.Length; i++)
-				dargs[i] = DynValue.FromObject(this, args[i]);
-
-			return Call(function, dargs);
-		}
-
-		/// <summary>
-		/// Calls the specified function.
+		/// Calls the specified function without leak.
 		/// </summary>
 		/// <param name="function">The Lua/MoonSharp function to be called</param>
-		/// <returns></returns>
+		/// <returns>
+		/// The return value(s) of the function call.
+		/// </returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(object function)
-		{
-			return Call(DynValue.FromObject(this, function));
-		}
+        public DynValue Call(DynValue function)
+        {
+            return Call(function, null, null, null, null);
+        }
 
-		/// <summary>
-		/// Calls the specified function.
+        /// <summary>
+		/// Calls the specified function without leak.
 		/// </summary>
-		/// <param name="function">The Lua/MoonSharp function to be called </param>
-		/// <param name="args">The arguments to pass to the function.</param>
-		/// <returns></returns>
+		/// <param name="function">The Lua/MoonSharp function to be called</param>
+		/// <returns>
+		/// The return value(s) of the function call.
+		/// </returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(object function, params object[] args)
-		{
-			return Call(DynValue.FromObject(this, function), args);
-		}
+        public DynValue Call(DynValue function, DynValue arg1)
+        {
+            return Call(function, arg1, null, null, null);
+        }
+
+        /// <summary>
+		/// Calls the specified function without leak.
+		/// </summary>
+		/// <param name="function">The Lua/MoonSharp function to be called</param>
+		/// <returns>
+		/// The return value(s) of the function call.
+		/// </returns>
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2)
+        {
+            return Call(function, arg1, arg2, null, null);
+        }
+
+        /// <summary>
+		/// Calls the specified function without leak.
+		/// </summary>
+		/// <param name="function">The Lua/MoonSharp function to be called</param>
+		/// <returns>
+		/// The return value(s) of the function call.
+		/// </returns>
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3)
+        {
+            return Call(function, arg1, arg2, arg3, null);
+        }
+
+        /// <summary>
+		/// Calls the specified function without leak.
+		/// </summary>
+		/// <param name="function">The Lua/MoonSharp function to be called</param>
+		/// <returns>
+		/// The return value(s) of the function call.
+		/// </returns>
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4)
+        {
+            //this.CheckScriptOwnership(function);
+            //this.CheckScriptOwnership(args);
+
+            DynValue arg5 = null;
+            if (function.Type != DataType.Function && function.Type != DataType.ClrFunction)
+            {
+                DynValue metafunction = m_MainProcessor.GetMetamethod(function, "__call");
+
+                if (metafunction != null)
+                {
+                    arg5 = function;
+                    function = metafunction;
+                }
+                else
+                {
+                    throw new ArgumentException("function is not a function and has no __call metamethod.");
+                }
+            }
+            else if (function.Type == DataType.ClrFunction)
+            {
+                DynValue[] array;
+                if (arg1 == null) array = _emptyDynList;
+                else if (arg2 == null) array = new DynValue[] { arg1 };
+                else if (arg3 == null) array = new DynValue[] { arg1, arg2 };
+                else if (arg4 == null) array = new DynValue[] { arg1, arg2, arg3 };
+                else array = new DynValue[] { arg1, arg2, arg3, arg4 };
+
+                return function.Callback.ClrCallback(this.CreateDynamicExecutionContext(function.Callback), new CallbackArguments(array, false));
+            }
+
+            return m_MainProcessor.Call(function, arg1, arg2, arg3, arg4, arg5);
+        }
 
 		/// <summary>
 		/// Creates a coroutine pointing at the specified function.
