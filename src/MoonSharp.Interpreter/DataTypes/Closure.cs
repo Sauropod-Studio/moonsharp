@@ -71,22 +71,57 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Calls this function with the specified args
+		/// Calls this function no args, doesn't allocate an IList
 		/// </summary>
-		/// <returns></returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call()
 		{
 			return OwnerScript.Call(DynValue.NewClosure(this));
 		}
 
-		/// <summary>
-		/// Calls this function with the specified args
+        /// <summary>
+        /// Calls this function no args, doesn't allocate an IList
+        /// </summary>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue arg1)
+        {
+            return OwnerScript.Call(DynValue.NewClosure(this), arg1);
+        }
+
+        /// <summary>
+		/// Calls this function no args, doesn't allocate an IList
 		/// </summary>
-		/// <param name="args">The arguments to pass to the function.</param>
-		/// <returns></returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(params object[] args)
+        public DynValue Call(DynValue arg1, DynValue arg2)
+        {
+            return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2);
+        }
+
+        /// <summary>
+		/// Calls this function no args, doesn't allocate an IList
+		/// </summary>
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue arg1, DynValue arg2, DynValue arg3)
+        {
+            return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2, arg3);
+        }
+
+        /// <summary>
+		/// Calls this function no args, doesn't allocate an IList
+		/// </summary>
+		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4)
+        {
+            return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2, arg3, arg4);
+        }
+
+        /// <summary>
+        /// Calls this function with the specified args
+        /// </summary>
+        /// <param name="args">The arguments to pass to the function.</param>
+        /// <returns></returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
+        public DynValue Call(params object[] args)
 		{
 			return OwnerScript.Call(DynValue.NewClosure(this), args);
 		}
@@ -108,9 +143,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="args">The arguments (count > 0) to pass to the function. (Argument 0 MUST be empty!)</param>
 		/// <returns></returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue PreFormattedCall(IList<DynValue> args)
+		public DynValue Call(IList<DynValue> args)
         {
-            return OwnerScript.PreFormattedCall(DynValue.NewClosure(this), args);
+            return OwnerScript.Call(DynValue.NewClosure(this), args);
         }
 
 

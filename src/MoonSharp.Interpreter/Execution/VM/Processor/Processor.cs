@@ -80,8 +80,42 @@ namespace MoonSharp.Interpreter.Execution.VM
 			}
 		}
 
-		// pushes all what's required to perform a clr-to-script function call. function can be null if it's already
-		// at vstack top.
+        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = null)
+        {
+            List<Processor> coroutinesStack = m_Parent != null ? m_Parent.m_CoroutinesStack : this.m_CoroutinesStack;
+
+            if (coroutinesStack.Count > 0 && coroutinesStack[coroutinesStack.Count - 1] != this)
+                return coroutinesStack[coroutinesStack.Count - 1].Call(function, arg1, arg2, arg3, arg4, metafunction);
+
+            EnterProcessor();
+
+            try
+            {
+                var stopwatch = this.m_Script.PerformanceStats.StartStopwatch(Diagnostics.PerformanceCounter.Execution);
+
+                m_CanYield = false;
+
+                try
+                {
+                    int entrypoint = PushClrToScriptStackFrame(CallStackItemFlags.CallEntryPoint, function, arg1, arg2, arg3, arg4, metafunction);
+                    return Processing_Loop(entrypoint);
+                }
+                finally
+                {
+                    m_CanYield = true;
+
+                    if (stopwatch != null)
+                        stopwatch.Dispose();
+                }
+            }
+            finally
+            {
+                LeaveProcessor();
+            }
+        }
+
+        // pushes all what's required to perform a clr-to-script function call. function can be null if it's already
+        // at vstack top.
         private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, IList<DynValue> args)
         {
             if (function == null)
@@ -95,6 +129,35 @@ namespace MoonSharp.Interpreter.Execution.VM
                 m_ValueStack.Push(args[i]);
 
             m_ValueStack.Push(DynValue.NewNumber(args.Count));  // func args count
+
+            m_ExecutionStack.Push(new CallStackItem()
+            {
+                BasePointer = m_ValueStack.Count,
+                Debug_EntryPoint = function.Function.EntryPointByteCodeLocation,
+                ReturnAddress = -1,
+                ClosureScope = function.Function.ClosureContext,
+                CallingSourceRef = SourceRef.GetClrLocation(),
+                Flags = flags
+            });
+
+            return function.Function.EntryPointByteCodeLocation;
+        }
+
+        private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = null)
+        {
+            if (function == null)
+                function = m_ValueStack.Peek();
+            else
+                m_ValueStack.Push(function);  // func val
+
+            int pushed = 0;
+            if (metafunction != null) { m_ValueStack.Push(metafunction); pushed++; }
+            if (arg1 != null) { m_ValueStack.Push(arg1); pushed++; }
+            if (arg2 != null) { m_ValueStack.Push(arg2); pushed++; }
+            if (arg3 != null) { m_ValueStack.Push(arg3); pushed++; }
+            if (arg4 != null) { m_ValueStack.Push(arg4); pushed++; }
+
+            m_ValueStack.Push(DynValue.NewNumber(pushed));  // func args count
 
             m_ExecutionStack.Push(new CallStackItem()
             {
