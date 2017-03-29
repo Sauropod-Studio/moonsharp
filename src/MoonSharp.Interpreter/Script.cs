@@ -36,6 +36,7 @@ namespace MoonSharp.Interpreter
 		Table m_GlobalTable;
 		IDebugger m_Debugger;
 		Table[] m_TypeMetatables = new Table[(int)LuaTypeExtensions.MaxMetaTypes];
+        bool m_isAlive = true;
         static DynValue[] _emptyDynList = new DynValue[0];
 
 		/// <summary>
@@ -61,13 +62,44 @@ namespace MoonSharp.Interpreter
 		public Script()
 			: this(CoreModules.Preset_Default)
 		{
-		}
+        }
 
-		/// <summary>
-		/// Initializes a new instance of the <see cref="Script"/> class.
-		/// </summary>
-		/// <param name="coreModules">The core modules to be pre-registered in the default global table.</param>
-		public Script(CoreModules coreModules)
+        ~Script()
+        {
+            _OnScriptKilled();
+        }
+
+        /// <summary>
+        /// Kills the script with extreme prejudice
+        /// </summary>
+        public void Kill()
+        {
+            _OnScriptKilled();
+        }
+
+        public delegate void ScriptEvent(Script script);
+        public event ScriptEvent OnScriptKilled;
+        private void _OnScriptKilled()
+        {
+            if (m_isAlive && OnScriptKilled != null)
+            {
+                OnScriptKilled(this);
+            }
+            m_MainProcessor = null;
+            m_ByteCode = null;
+            m_Sources = null;
+            m_GlobalTable = null;
+            m_Debugger = null;
+            m_TypeMetatables = null;
+            m_isAlive = false;
+        }
+
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Script"/> class.
+        /// </summary>
+        /// <param name="coreModules">The core modules to be pre-registered in the default global table.</param>
+        public Script(CoreModules coreModules)
 		{
 			Options = new ScriptOptions(DefaultOptions);
 			PerformanceStats = new PerformanceStatistics();
@@ -100,13 +132,27 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public PerformanceStatistics PerformanceStats { get; private set; }
 
+        public string FriendlyName { get; set; }
+
+        public bool IsAlive
+        {
+            get
+            {
+                return m_isAlive;
+            }
+        }
+
 		/// <summary>
 		/// Gets the default global table for this script. Unless a different table is intentionally passed (or setfenv has been used)
 		/// execution uses this table.
 		/// </summary>
 		public Table Globals
 		{
-			get { return m_GlobalTable; }
+			get
+            {
+                if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to get Globals of dead Script [{0}]", FriendlyName));
+                return m_GlobalTable;
+            }
 		}
 
 		/// <summary>
@@ -120,7 +166,8 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public DynValue LoadFunction(string code, Table globalTable = null, string funcFriendlyName = null)
 		{
-			this.CheckScriptOwnership(globalTable);
+            if (!m_isAlive) throw new InvalidOperationException("Attempting to loadfunction on a dead Script");
+            this.CheckScriptOwnership(globalTable);
 
 			string chunkName = string.Format("libfunc_{0}", funcFriendlyName ?? m_Sources.Count.ToString());
 
@@ -164,7 +211,8 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public DynValue LoadString(string code, Table globalTable = null, string codeFriendlyName = null)
 		{
-			this.CheckScriptOwnership(globalTable);
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to loadstring on dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(globalTable);
 
 			if (code.StartsWith(StringModule.BASE64_DUMP_HEADER))
 			{
@@ -201,7 +249,8 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public DynValue LoadStream(Stream stream, Table globalTable = null, string codeFriendlyName = null)
 		{
-			this.CheckScriptOwnership(globalTable);
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to loadstream on dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(globalTable);
 
 			Stream codeStream = new UndisposableStream(stream);
 
@@ -250,7 +299,8 @@ namespace MoonSharp.Interpreter
 		/// </exception>
 		public void Dump(DynValue function, Stream stream)
 		{
-			this.CheckScriptOwnership(function);
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to dump dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(function);
 
 			if (function.Type != DataType.Function)
 				throw new ArgumentException("function arg is not a function!");
@@ -279,7 +329,8 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public DynValue LoadFile(string filename, Table globalContext = null, string friendlyFilename = null)
 		{
-			this.CheckScriptOwnership(globalContext);
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to loadfile on dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(globalContext);
 
 #pragma warning disable 618
 			filename = Options.ScriptLoader.ResolveFileName(filename, globalContext ?? m_GlobalTable);
@@ -395,6 +446,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		private DynValue MakeClosure(int address, Table envTable = null)
 		{
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to make a closure on dead Script [{0}]", FriendlyName));
 			this.CheckScriptOwnership(envTable);
 			Closure c;
 
@@ -498,6 +550,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(DynValue function, IList<DynValue> args)
         {
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to call on dead Script [{0}]", FriendlyName));
             //this.CheckScriptOwnership(function);
             //this.CheckScriptOwnership(args);
 
@@ -590,6 +643,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4)
         {
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to call on dead Script [{0}]", FriendlyName));
             //this.CheckScriptOwnership(function);
             //this.CheckScriptOwnership(args);
 
@@ -623,17 +677,18 @@ namespace MoonSharp.Interpreter
             return m_MainProcessor.Call(function, arg1, arg2, arg3, arg4, arg5);
         }
 
-		/// <summary>
-		/// Creates a coroutine pointing at the specified function.
-		/// </summary>
-		/// <param name="function">The function.</param>
-		/// <returns>
-		/// The coroutine handle.
-		/// </returns>
-		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function or DataType.ClrFunction</exception>
-		public DynValue CreateCoroutine(DynValue function)
+        /// <summary>
+        /// Creates a coroutine pointing at the specified function.
+        /// </summary>
+        /// <param name="function">The function.</param>
+        /// <returns>
+        /// The coroutine handle.
+        /// </returns>
+        /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function or DataType.ClrFunction</exception>
+        public DynValue CreateCoroutine(DynValue function)
 		{
-			this.CheckScriptOwnership(function);
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to create a coroutine on dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(function);
 
 			if (function.Type == DataType.Function)
 				return m_MainProcessor.Coroutine_Create(function.Function);
@@ -676,7 +731,8 @@ namespace MoonSharp.Interpreter
 		/// <param name="debugger">The debugger object.</param>
 		public void AttachDebugger(IDebugger debugger)
 		{
-			DebuggerEnabled = true;
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to attach a debugger on dead Script [{0}]", FriendlyName));
+            DebuggerEnabled = true;
 			m_Debugger = debugger;
 			m_MainProcessor.AttachDebugger(debugger);
 
@@ -693,7 +749,8 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public SourceCode GetSourceCode(int sourceCodeID)
 		{
-			return m_Sources[sourceCodeID];
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to get source code of dead Script [{0}]", FriendlyName));
+            return m_Sources[sourceCodeID];
 		}
 
 
@@ -705,7 +762,11 @@ namespace MoonSharp.Interpreter
 		/// </value>
 		public int SourceCodeCount
 		{
-			get { return m_Sources.Count; }
+			get
+            {
+                if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to get source code count of dead Script [{0}]", FriendlyName));
+                return m_Sources.Count;
+            }
 		}
 
 
@@ -718,8 +779,9 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		/// <exception cref="ScriptRuntimeException">Raised if module is not found</exception>
 		public DynValue RequireModule(string modname, Table globalContext = null)
-		{
-			this.CheckScriptOwnership(globalContext);
+        {
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to require module of dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(globalContext);
 
 			Table globals = globalContext ?? m_GlobalTable;
 			string filename = Options.ScriptLoader.ResolveModuleName(modname, globals);
@@ -739,8 +801,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="type">The type.</param>
 		/// <returns></returns>
 		public Table GetTypeMetatable(DataType type)
-		{
-			int t = (int)type;
+        {
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to get type metatable on dead Script [{0}]", FriendlyName));
+            int t = (int)type;
 
 			if (t >= 0 && t < m_TypeMetatables.Length)
 				return m_TypeMetatables[t];
@@ -755,8 +818,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="metatable">The metatable.</param>
 		/// <exception cref="System.ArgumentException">Specified type not supported :  + type.ToString()</exception>
 		public void SetTypeMetatable(DataType type, Table metatable)
-		{
-			this.CheckScriptOwnership(metatable);
+        {
+            if (!m_isAlive) throw new InvalidOperationException(string.Format("Attempting to set type metatable on dead Script [{0}]", FriendlyName));
+            this.CheckScriptOwnership(metatable);
 
 			int t = (int)type;
 
@@ -774,6 +838,7 @@ namespace MoonSharp.Interpreter
 		{
 			Script s = new Script(CoreModules.Basic);
 			s.LoadString("return 1;");
+            s.Kill();
 		}
 
 
