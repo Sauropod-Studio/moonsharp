@@ -249,11 +249,19 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 			{
 				IUserDataDescriptor typeDescriptor = null;
 
-				// if the type has been explicitly registered, return its descriptor as it's complete
-				if (s_TypeRegistry.ContainsKey(type))
-					return s_TypeRegistry[type];
+                // if the type has been explicitly registered, return its descriptor as it's complete
+                if (type.IsGenericType)
+                {
+                    IUserDataDescriptor iudd = null;
+                    if (s_TypeRegistry.TryGetValue(type.BaseType, out iudd)) { return iudd; }
+                }
+                else
+                {
+                    IUserDataDescriptor iudd = null;
+                    if (s_TypeRegistry.TryGetValue(type, out iudd)) { return iudd; }
+                }
 
-				if (RegistrationPolicy.AllowTypeAutoRegistration(type))
+                if (RegistrationPolicy.AllowTypeAutoRegistration(type))
 				{
 					// no autoreg of delegates
 					if (!Framework.Do.IsAssignableFrom((typeof(Delegate)), type))
