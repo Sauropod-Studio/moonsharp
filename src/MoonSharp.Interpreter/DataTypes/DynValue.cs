@@ -893,9 +893,11 @@ namespace MoonSharp.Interpreter
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public static DynValue FromObject(Script script, object obj)
+		public static DynValue FromObject(Script script, object obj, bool readOnly = false)
 		{
-			return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.ObjectToDynValue(script, obj);
+			DynValue dv = MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.ObjectToDynValue(script, obj);
+            dv.m_ReadOnly = readOnly;
+            return dv;
 		}
 
 		/// <summary>
