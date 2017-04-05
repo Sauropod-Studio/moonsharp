@@ -295,15 +295,9 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 
 
 				// we should not search interfaces (for example, it's just for statics..), no need to look further
-				if (!searchInterfaces)
+				if (!searchInterfaces || typeDescriptor != null)
 					return typeDescriptor;
-
-				List<IUserDataDescriptor> descriptors = new List<IUserDataDescriptor>();
-
-				if (typeDescriptor != null)
-					descriptors.Add(typeDescriptor);
-
-
+                
 				if (searchInterfaces)
 				{
 					foreach (Type interfaceType in Framework.Do.GetInterfaces(type))
@@ -316,7 +310,7 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 								interfaceDescriptor = ((IGeneratorUserDataDescriptor)interfaceDescriptor).Generate(type);
 
 							if (interfaceDescriptor != null)
-								descriptors.Add(interfaceDescriptor);
+								return interfaceDescriptor;
 						}
 						else if (Framework.Do.IsGenericType(interfaceType))
 						{
@@ -326,18 +320,13 @@ namespace MoonSharp.Interpreter.Interop.UserDataRegistries
 									interfaceDescriptor = ((IGeneratorUserDataDescriptor)interfaceDescriptor).Generate(type);
 
 								if (interfaceDescriptor != null)
-									descriptors.Add(interfaceDescriptor);
+									return interfaceDescriptor;
 							}
 						}
 					}
 				}
 
-				if (descriptors.Count == 1)
-					return descriptors[0];
-				else if (descriptors.Count == 0)
-					return null;
-				else
-					return new CompositeUserDataDescriptor(descriptors, type);
+				return null;
 			}
 		}
 
