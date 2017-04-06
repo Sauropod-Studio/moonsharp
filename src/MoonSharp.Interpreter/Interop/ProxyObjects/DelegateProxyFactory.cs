@@ -36,9 +36,11 @@ namespace MoonSharp.Interpreter.Interop
 		/// </summary>
 		/// <param name="o"></param>
 		/// <returns></returns>
-		public object CreateProxyObject(object o)
+		public IUserData CreateProxyObject(IUserData o)
 		{
-			return CreateProxyObject((TTarget)o);
+            //TODO This needs to be redesigned/reimplemented
+		    return null;
+		    //return CreateProxyObject((TTarget)o);
 		}
 
 		/// <summary>

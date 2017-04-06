@@ -59,8 +59,9 @@ namespace MoonSharp.Interpreter.Interop.Converters
 				case DataType.Tuple:
 					return value.Tuple;
 				case DataType.UserData:
-					if (value.UserData.Object != null)
-						return value.UserData.Object;
+			        object content;
+                    if (value.UserData.TryGet(out content))
+						return content;
 					else if (value.UserData.Descriptor != null)
 						return value.UserData.Descriptor.Type;
 					else
@@ -72,27 +73,31 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			}
 		}
 
-
+        //TODO use compiled lamda expresssion, which would GREATLY optimize this tree
+        //the process of converting 
 		/// <summary>
 		/// Converts a DynValue to a CLR object of a specific type
 		/// </summary>
-		internal static object DynValueToObjectOfType(DynValue value, Type desiredType, object defaultValue, bool isOptional)
+		internal static T DynValueToTypedValue<T>(DynValue value, T defaultValue, bool isOptional)
 		{
-			if (desiredType.IsByRef)
+		    var desiredType = typeof (T);
+
+            if (desiredType.IsByRef)
 				desiredType = desiredType.GetElementType();
 
-			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion(value.Type, desiredType);
+			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion<T>(value.Type);
 			if (converter != null)
 			{
                 var v = converter(value, desiredType);
-				if (v != null) return v;
+				if (v != null)
+                    return v;
 			}
 
 			if (desiredType == typeof(DynValue))
-				return value;
+				return ValueConverter<DynValue,T>.Instance.Convert(value);
 
 			if (desiredType == typeof(object))
-				return DynValueToObject(value);
+				return (T)DynValueToObject(value);
 
 			StringConversions.StringSubtype stringSubType = StringConversions.GetStringSubtype(desiredType);
 			string str = null;
@@ -111,37 +116,32 @@ namespace MoonSharp.Interpreter.Interop.Converters
 				case DataType.Void:
 					if (isOptional)
 						return defaultValue;
-					else if ((!Framework.Do.IsValueType(desiredType)) || (nullableType != null))
-						return null;
+					else if ((!desiredType.IsValueType) || (nullableType != null))
+						return default(T);
 					break;
 				case DataType.Nil:
-					if (Framework.Do.IsValueType(desiredType))
+					if (desiredType.IsValueType)
 					{
 						if (nullableType != null)
-							return null;
+							return default(T);
 
 						if (isOptional)
 							return defaultValue;
 					}
 					else
 					{
-						return null;
+						return default(T);
 					}
 					break;
 				case DataType.Boolean:
 					if (desiredType == typeof(bool))
-						return value.Boolean;
+						return ValueConverter<bool, T>.Instance.Convert(value.Boolean);
 					if (stringSubType != StringConversions.StringSubtype.None)
 						str = value.Boolean.ToString();
 					break;
 				case DataType.Number:
-					if (Framework.Do.IsEnum(desiredType))
-					{	// number to enum conv
-						Type underType = Enum.GetUnderlyingType(desiredType);
-						return NumericConversions.DoubleToType(underType, value.Number);
-					}
-					if (NumericConversions.NumericTypes.Contains(desiredType))
-						return NumericConversions.DoubleToType(desiredType, value.Number);
+					if (desiredType.IsEnum || NumericConversions.NumericTypes.Contains(desiredType))
+						return ValueConverter<double, T>.Instance.Convert(value.Number);
 					if (stringSubType != StringConversions.StringSubtype.None)
 						str = value.Number.ToString();
 					break;
@@ -150,42 +150,43 @@ namespace MoonSharp.Interpreter.Interop.Converters
 						str = value.String;
 					break;
 				case DataType.Function:
-					if (desiredType == typeof(Closure)) return value.Function;
-					else if (desiredType == typeof(ScriptFunctionDelegate)) return value.Function.GetDelegate();
+					if (desiredType == typeof(Closure))
+                        return ValueConverter<Closure, T>.Instance.Convert(value.Function);
+					else if (desiredType == typeof(ScriptFunctionDelegate<T>))
+                        return ValueConverter<ScriptFunctionDelegate<T>, T>.Instance.Convert(value.Function.GetDelegate<T>());
 					break;
 				case DataType.ClrFunction:
-					if (desiredType == typeof(CallbackFunction)) return value.Callback;
-					else if (desiredType == typeof(Func<ScriptExecutionContext, CallbackArguments, DynValue>)) return value.Callback.ClrCallback;
+					if (desiredType == typeof(CallbackFunction))
+                        return ValueConverter<CallbackFunction, T>.Instance.Convert(value.Callback);
+					else if (desiredType == typeof(Func<ScriptExecutionContext, CallbackArguments, DynValue>))
+                        return ValueConverter<Func<ScriptExecutionContext, CallbackArguments, DynValue>, T>.Instance.Convert(value.Callback.ClrCallback);
 					break;
 				case DataType.UserData:
-					if (value.UserData.Object != null)
+					if (value.UserData.HasValue())
 					{
-						var udObj = value.UserData.Object;
-						var udDesc = value.UserData.Descriptor;
-
-						if (udDesc.IsTypeCompatible(desiredType, udObj))
-							return udObj;
-
+					    T t;
+						if (value.UserData.TryGet(out t))
+							return t;
 						if (stringSubType != StringConversions.StringSubtype.None)
-							str = udDesc.AsString(udObj);
+							str = value.UserData.AsString();
 					}
 					break;
 				case DataType.Table:
 					if (desiredType == typeof(Table) || Framework.Do.IsAssignableFrom(desiredType, typeof(Table)))
-						return value.Table;
+						return ValueConverter<Table, T>.Instance.Convert(value.Table);
 					else
 					{
-						object o = TableConversions.ConvertTableToType(value.Table, desiredType);
+						object o = TableConversions.ConvertTableToType(value.Table, typeof(T));
 						if (o != null)
-							return o;
-					}
+							return ValueConverter<object, T>.Instance.Convert(o);
+                    }
 					break;
 				case DataType.Tuple:
 					break;
 			}
 
 			if (stringSubType != StringConversions.StringSubtype.None && str != null)
-				return StringConversions.ConvertString(stringSubType, str, desiredType, value.Type);
+				return ValueConverter<object, T>.Instance.Convert(StringConversions.ConvertString(stringSubType, str, desiredType, value.Type));
 
 			throw ScriptRuntimeException.ConvertObjectFailed(value.Type, desiredType);
 		}
@@ -276,9 +277,9 @@ namespace MoonSharp.Interpreter.Interop.Converters
 					else if (desiredType == typeof(Func<ScriptExecutionContext, CallbackArguments, DynValue>)) return WEIGHT_EXACT_MATCH;
 					break;
 				case DataType.UserData:
-					if (value.UserData.Object != null)
+					if (value.UserData.HasValue())
 					{
-						var udObj = value.UserData.Object;
+						var udObj = value.UserData;
 						var udDesc = value.UserData.Descriptor;
 
 						if (udDesc.IsTypeCompatible(desiredType, udObj))

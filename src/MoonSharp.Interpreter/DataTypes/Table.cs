@@ -107,7 +107,7 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return Get(keys).ToObject();
+				return Get(keys).ToObject<object>();
 			}
 			set
 			{
@@ -128,7 +128,7 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return Get(key).ToObject();
+				return Get(key).ToObject<object>();
 			}
 			set
 			{

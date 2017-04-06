@@ -28,7 +28,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object owning this member, or null if static.</param>
 		/// <returns>The value of this member as a <see cref="DynValue"/>.</returns>
-		DynValue GetValue(Script script, object obj);
+		DynValue GetValue<T>(Script script, T obj);
 		/// <summary>
 		/// Sets the value of this member from a <see cref="DynValue"/>.
 		/// Implementors should raise exceptions if the value cannot be read or if access to an
@@ -37,7 +37,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object owning this member, or null if static.</param>
 		/// <param name="value">The value to be set.</param>
-		void SetValue(Script script, object obj, DynValue value);
+		void SetValue<T>(Script script, T obj, DynValue value);
 	}
 
 

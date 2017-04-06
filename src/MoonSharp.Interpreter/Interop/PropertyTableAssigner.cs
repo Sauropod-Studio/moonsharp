@@ -166,8 +166,7 @@ namespace MoonSharp.Interpreter.Interop
 					}
 					else
 					{
-						o = Interop.Converters.ScriptToClrConversions.DynValueToObjectOfType(value,
-							pi.PropertyType, null, false);
+						o = value.ToObject<object>();
 					}
 
 					Framework.Do.GetSetMethod(pi).Invoke(obj, new object[] { o });

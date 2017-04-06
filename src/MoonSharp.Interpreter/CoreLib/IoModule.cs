@@ -266,9 +266,10 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (args[0].Type != DataType.UserData)
 				return DynValue.Nil;
 
-			FileUserDataBase file = args[0].UserData.Object as FileUserDataBase;
 
-			if (file == null)
+			FileUserDataBase file;
+
+			if (!args[0].UserData.TryGet(out file))
 				return DynValue.Nil;
 			else if (file.isopen())
 				return DynValue.NewString("file");

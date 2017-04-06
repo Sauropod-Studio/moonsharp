@@ -39,8 +39,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 			if (op1.Type == DataType.UserData)
 			{
-				DynValue meta = op1.UserData.Descriptor.MetaIndex(this.m_Script,
-					op1.UserData.Object, eventName);
+				DynValue meta = op1.UserData.Descriptor.MetaIndex(this.m_Script, op1.UserData, eventName);
 
 				if (meta != null)
 					return meta;
@@ -49,7 +48,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			if (op2.Type == DataType.UserData)
 			{
 				DynValue meta = op2.UserData.Descriptor.MetaIndex(this.m_Script,
-					op2.UserData.Object, eventName);
+					op2.UserData, eventName);
 
 				if (meta != null)
 					return meta;
@@ -62,7 +61,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		{
 			if (value.Type == DataType.UserData)
 			{
-				DynValue v = value.UserData.Descriptor.MetaIndex(m_Script, value.UserData.Object, metamethod);
+				DynValue v = value.UserData.Descriptor.MetaIndex(m_Script, value.UserData, metamethod);
 				if (v != null)
 					return v;
 			}

@@ -47,7 +47,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="index">The index.</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public DynValue Index(Script script, object obj, DynValue index, bool isDirectIndexing)
+		public DynValue Index(Script script, IUserData obj, DynValue index, bool isDirectIndexing)
 		{
 			IUserDataType u = obj as IUserDataType;
 
@@ -66,7 +66,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="value">The value to be set</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public bool SetIndex(Script script, object obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public bool SetIndex(Script script, IUserData obj, DynValue index, DynValue value, bool isDirectIndexing)
 		{
 			IUserDataType u = obj as IUserDataType;
 
@@ -81,12 +81,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public string AsString(object obj)
+		public string AsString(IUserData obj)
 		{
-			if (obj != null)
-				return obj.ToString();
-			else
-				return null;
+		    return obj == null ? null : obj.AsString();
 		}
 
 		/// <summary>
@@ -103,7 +100,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="obj">The object (null if a static request is done)</param>
 		/// <param name="metaname">The name of the metamember.</param>
 		/// <returns></returns>
-		public DynValue MetaIndex(Script script, object obj, string metaname)
+		public DynValue MetaIndex(Script script, IUserData obj, string metaname)
 		{
 			IUserDataType u = obj as IUserDataType;
 
@@ -122,7 +119,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="type">The type.</param>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public bool IsTypeCompatible(Type type, object obj)
+		public bool IsTypeCompatible(Type type, IUserData obj)
 		{
 			return Framework.Do.IsInstanceOfType(type, obj);
 		}

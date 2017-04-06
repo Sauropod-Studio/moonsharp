@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using MoonSharp.Interpreter.Interop.Converters;
+using System.Threading;
 
 namespace MoonSharp.Interpreter
 {
@@ -21,7 +22,7 @@ namespace MoonSharp.Interpreter
         private static Stack<DynValue> _pool = new Stack<DynValue>(MAX_POOL_SIZE);
 
 
-		private int m_RefID = ++s_RefIDCounter;
+		private int m_RefID = Interlocked.Increment(ref s_RefIDCounter);
 		private int m_HashCode = -1;
 
 		private bool m_ReadOnly;
@@ -83,7 +84,7 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Gets the tail call data.
 		/// </summary>
-		public UserData UserData { get { return m_Object as UserData; } }
+		public IUserData UserData { get { return m_Object as IUserData; } }
 
 		/// <summary>
 		/// Returns true if this instance is write protected.
@@ -397,7 +398,7 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Creates a new userdata value
 		/// </summary>
-		public static DynValue NewUserData(UserData userData)
+		public static DynValue NewUserData(IUserData userData)
 		{
             var d = Request();
             d.m_Object = userData;
@@ -512,10 +513,10 @@ namespace MoonSharp.Interpreter
 
 				string typeString = this.Type.ToLuaTypeString();
 
-				if (m_Object is UserData)
+				if (m_Object is IUserData)
 				{
-					UserData ud = (UserData)m_Object;
-					string str = ud.Descriptor.AsString(ud.Object);
+					IUserData ud = (IUserData)m_Object;
+					string str = ud.AsString();
 					if (str != null)
 						return str;
 				}
@@ -549,14 +550,13 @@ namespace MoonSharp.Interpreter
 
 				string typeString = this.Type.ToLuaTypeString();
 
-				if (m_Object is UserData)
+				if (m_Object is IUserData)
 				{
-					UserData ud = (UserData)m_Object;
-					string str = ud.Descriptor.AsString(ud.Object);
+					IUserData ud = (IUserData)m_Object;
+					string str = ud.AsString();
 					if (str != null)
 						return str;
 				}
-
 				return refid.FormatTypeString(typeString);
 			}
 
@@ -708,8 +708,8 @@ namespace MoonSharp.Interpreter
 					return Coroutine == other.Coroutine;
 				case DataType.UserData:
 					{
-						UserData ud1 = this.UserData;
-						UserData ud2 = other.UserData;
+						IUserData ud1 = this.UserData;
+						IUserData ud2 = other.UserData;
 
 						if (ud1 == null || ud2 == null)
 							return false;
@@ -717,11 +717,11 @@ namespace MoonSharp.Interpreter
 						if (ud1.Descriptor != ud2.Descriptor)
 							return false;
 
-						if (ud1.Object == null && ud2.Object == null)
+						if (!ud1.HasValue() && !ud1.HasValue())
 							return true;
 
-						if (ud1.Object != null && ud2.Object != null)
-							return ud1.Object.Equals(ud2.Object);
+						if (ud1.HasValue() && ud1.HasValue())
+							return ud1.Equals(ud2);
 
 						return false;
 					}
@@ -900,32 +900,15 @@ namespace MoonSharp.Interpreter
         /// <returns></returns>
         public static DynValue FromObject<T>(Script script, T value)
         {
-            return MoonSharp.Interpreter.Interop.Converters.ClrToScriptConversions.GenericToDynValue<T>(script, value);
+            return ClrToScriptConversions.GenericToDynValue<T>(script, value);
         }
 
         /// <summary>
         /// Converts this MoonSharp DynValue to a CLR object.
         /// </summary>
-        public object ToObject()
+        public T ToObject<T>()
 		{
-			return MoonSharp.Interpreter.Interop.Converters.ScriptToClrConversions.DynValueToObject(this);
-		}
-
-		/// <summary>
-		/// Converts this MoonSharp DynValue to a CLR object of the specified type.
-		/// </summary>
-		public object ToObject(Type desiredType)
-		{
-			//Contract.Requires(desiredType != null);
-			return MoonSharp.Interpreter.Interop.Converters.ScriptToClrConversions.DynValueToObjectOfType(this, desiredType, null, false);
-		}
-
-		/// <summary>
-		/// Converts this MoonSharp DynValue to a CLR object of the specified type.
-		/// </summary>
-		public T ToObject<T>()
-		{
-			return (T)ToObject(typeof(T));
+			return ScriptToClrConversions.DynValueToTypedValue(this, default(T), true);
 		}
 
 #if HASDYNAMIC
@@ -1005,15 +988,13 @@ namespace MoonSharp.Interpreter
 			if (v.IsNil())
 				return default(T);
 
-			T o = v.UserData.Get<T>();
-		    if (!typeof(T).IsValueType && )
+		    T t;
+		    if (v.UserData.TryGet<T>(out t))
 		    {
-		        var r = v as T;
+		        return t;
 		    }
-			if (o != default(T) && o is T)
-				return (T)o;
 
-			throw ScriptRuntimeException.BadArgumentUserData(argNum, funcName, typeof(T), o, allowNil);
+			throw ScriptRuntimeException.BadArgumentUserData(argNum, funcName, typeof(T), t, allowNil);
 		}
 
 	}

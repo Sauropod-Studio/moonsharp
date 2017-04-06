@@ -1242,7 +1242,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 				}
 				else if (obj.Type == DataType.UserData)
 				{
-					UserData ud = obj.UserData;
+					IUserData ud = obj.UserData;
 
 					if (!ud.Descriptor.SetIndex(this.GetScript(), ud, originalIdx, value, isNameIndex))
 					{
@@ -1324,9 +1324,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 				}
 				else if (obj.Type == DataType.UserData)
 				{
-					UserData ud = obj.UserData;
+					IUserData ud = obj.UserData;
 
-					var v = ud.Descriptor.Index(this.GetScript(), ud.Object, originalIdx, isNameIndex);
+					var v = ud.Descriptor.Index(this.GetScript(), ud, originalIdx, isNameIndex);
 
 					if (v == null)
 					{

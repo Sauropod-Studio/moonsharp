@@ -155,7 +155,7 @@ namespace MoonSharp.Interpreter
         /// <returns></returns>
         public ScriptFunctionDelegate GetDelegate()
 		{
-			return args => this.Call(args).ToObject();
+			return args => this.Call(args).ToObject<object>();
 		}
 
 		/// <summary>

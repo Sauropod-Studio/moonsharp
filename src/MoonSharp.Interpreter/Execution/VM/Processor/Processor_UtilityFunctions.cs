@@ -50,7 +50,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 			if (op1.Type == DataType.UserData)
 			{
-				m = op1.UserData.Descriptor.MetaIndex(m_Script, op1.UserData.Object, eventName);
+				m = op1.UserData.Descriptor.MetaIndex(m_Script, op1.UserData, eventName);
 			}
 
 			if (m == null)

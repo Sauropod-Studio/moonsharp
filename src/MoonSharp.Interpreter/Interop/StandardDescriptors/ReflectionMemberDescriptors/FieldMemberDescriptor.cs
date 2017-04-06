@@ -9,10 +9,98 @@ using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter.Interop
 {
-	/// <summary>
-	/// Class providing easier marshalling of CLR fields
-	/// </summary>
-	public class FieldMemberDescriptor : IMemberDescriptor, IOptimizableDescriptor, IWireableDescriptor
+    public class FieldMemberDescriptor<TObj> : FieldMemberDescriptor, IOptimizableDescriptor
+    {
+        Func<Script, TObj, DynValue> m_OptimizedGetter = null;
+
+        public FieldMemberDescriptor(FieldInfo fi, InteropAccessMode accessMode) : base(fi, accessMode){}
+
+        /// <summary>
+        /// Gets the value of the property
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <returns></returns>
+        public override DynValue GetValue<TFieldContainer>(Script script, TFieldContainer objWithField)
+        {
+            this.CheckAccess(MemberDescriptorAccess.CanRead, objWithField);
+
+            if (m_OptimizedGetter != null)
+            {
+                TObj tObj = ValueConverter<TFieldContainer, TObj>.Instance.Convert(objWithField);
+                return m_OptimizedGetter(script, tObj);
+            }
+            // optimization+workaround of Unity bug.. 
+            if (IsConst)
+                return ClrToScriptConversions.ObjectToDynValue(script, m_ConstValue);
+
+            if (AccessMode == InteropAccessMode.LazyOptimized && m_OptimizedGetter == null)
+            {
+                OptimizeGetter(FieldInfo);
+                if (m_OptimizedGetter != null)
+                {
+                    TObj tObj = ValueConverter<TFieldContainer, TObj>.Instance.Convert(objWithField);
+                    return m_OptimizedGetter(script, tObj);
+                }
+            }
+
+            object result = FieldInfo.GetValue(objWithField);
+            return ClrToScriptConversions.ObjectToDynValue(script, result);
+        }
+
+        internal override void OptimizeGetter(FieldInfo fi)
+        {
+            using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
+            {
+                // We want something that behaves like this:
+                //lambda = (Script sc, TObj obj) => ClrToScriptConversions.ObjectToDynValue(sc, fi.GetValue(obj));
+                Expression<Func<Script, TObj, DynValue>> lambda;
+                if (IsStatic)
+                {
+                    var param1 = Expression.Parameter(typeof(Script), "script");
+                    var param2 = Expression.Parameter(typeof(object), "container");
+                    var fiGetValue = Expression.Field(null, fi);
+                    var objToDynValueCall = Expression.Call(typeof(ClrToScriptConversions).GetMethod("GenericToDynValue", BindingFlags.NonPublic| BindingFlags.Static).MakeGenericMethod(fi.FieldType), param1, fiGetValue);
+                    lambda = Expression.Lambda<Func<Script, TObj, DynValue>>(objToDynValueCall, param1, param2);
+                }
+                else
+                {
+                    if (fi.DeclaringType.IsValueType)
+                    { 
+                        var param1 = Expression.Parameter(typeof(Script), "script");
+                        var param2 = Expression.Parameter(fi.DeclaringType, "container");
+                        var fiGetValue = Expression.Field(param2, fi);
+                        var objToDynValueCall = Expression.Call(typeof(ClrToScriptConversions).GetMethod("GenericToDynValue", BindingFlags.NonPublic | BindingFlags.Static).MakeGenericMethod(fi.FieldType), param1, fiGetValue);
+                        lambda = Expression.Lambda<Func<Script, TObj, DynValue>>(objToDynValueCall, param1, param2);
+                    }
+                    else
+                    {
+                        var param1 = Expression.Parameter(typeof(Script), "script");
+                        var param2 = Expression.Parameter(fi.DeclaringType, "container");
+                        var fiGetValue = Expression.Field(param2, fi);
+                        var nullCheck = Expression.NotEqual(param2, Expression.Constant(null, typeof(object)));
+                        var objToDynValueCall = Expression.Call(typeof(ClrToScriptConversions).GetMethod("GenericToDynValue", BindingFlags.NonPublic | BindingFlags.Static).MakeGenericMethod(fi.FieldType), param1, fiGetValue);
+                        var nilDynValueCall = Expression.Invoke((Expression<Func<DynValue>>) (() => DynValue.Nil));
+                        var ifNotNull = Expression.Condition(nullCheck, objToDynValueCall, nilDynValueCall);
+
+                        lambda = Expression.Lambda<Func<Script, TObj, DynValue>>(ifNotNull, param1, param2);
+                    }
+                }
+                Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
+            }
+        }
+
+        void IOptimizableDescriptor.Optimize()
+        {
+            if (m_OptimizedGetter == null)
+                this.OptimizeGetter(FieldInfo);
+        }
+    }
+
+    /// <summary>
+    /// Class providing easier marshalling of CLR fields
+    /// </summary>
+    public abstract class FieldMemberDescriptor : IMemberDescriptor, IWireableDescriptor
 	{
 		/// <summary>
 		/// Gets the FieldInfo got by reflection
@@ -40,9 +128,8 @@ namespace MoonSharp.Interpreter.Interop
 		public bool IsReadonly { get; private set; }
 
 
-		object m_ConstValue = null;
+		protected object m_ConstValue = null;
 
-		Func<object, object> m_OptimizedGetter = null;
 
 
 		/// <summary>
@@ -54,10 +141,10 @@ namespace MoonSharp.Interpreter.Interop
 		/// <returns>A new StandardUserDataFieldDescriptor or null.</returns>
 		public static FieldMemberDescriptor TryCreateIfVisible(FieldInfo fi, InteropAccessMode accessMode, bool forceVisibility = false)
 		{
+		    
             if (fi.GetVisibilityFromAttributes() ?? fi.IsPublic || forceVisibility)
-				return new FieldMemberDescriptor(fi, accessMode);
-
-			return null;
+				return Activator.CreateInstance(typeof(FieldMemberDescriptor<>).MakeGenericType(fi.DeclaringType), fi, accessMode) as FieldMemberDescriptor;
+            return null;
 		}
 
 
@@ -88,86 +175,43 @@ namespace MoonSharp.Interpreter.Interop
 
 			if (AccessMode == InteropAccessMode.Preoptimized)
 			{
-				this.OptimizeGetter();
+				this.OptimizeGetter(fi);
 			}
 		}
 
 
-		/// <summary>
-		/// Gets the value of the property
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="obj">The object.</param>
-		/// <returns></returns>
-		public DynValue GetValue(Script script, object obj)
-		{
-			this.CheckAccess(MemberDescriptorAccess.CanRead, obj);
+        /// <summary>
+        /// Gets the value of the property
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <returns></returns>
+        public abstract DynValue GetValue<TFieldContainer>(Script script, TFieldContainer objWithField);
 
-			// optimization+workaround of Unity bug.. 
-			if (IsConst)
-				return ClrToScriptConversions.ObjectToDynValue(script, m_ConstValue);
 
-			if (AccessMode == InteropAccessMode.LazyOptimized && m_OptimizedGetter == null)
-				OptimizeGetter();
+        internal abstract void OptimizeGetter(FieldInfo fi);
 
-			object result = null;
-
-			if (m_OptimizedGetter != null)
-				result = m_OptimizedGetter(obj);
-			else
-				result = FieldInfo.GetValue(obj);
-
-			return ClrToScriptConversions.ObjectToDynValue(script, result);
-		}
-
-		internal void OptimizeGetter()
-		{
-			if (this.IsConst)
-				return;
-
-			using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
-			{
-				if (IsStatic)
-				{
-					var paramExp = Expression.Parameter(typeof(object), "dummy");
-					var propAccess = Expression.Field(null, FieldInfo);
-					var castPropAccess = Expression.Convert(propAccess, typeof(object));
-					var lambda = Expression.Lambda<Func<object, object>>(castPropAccess, paramExp);
-					Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
-				}
-				else
-				{
-					var paramExp = Expression.Parameter(typeof(object), "obj");
-					var castParamExp = Expression.Convert(paramExp, this.FieldInfo.DeclaringType);
-					var propAccess = Expression.Field(castParamExp, FieldInfo);
-					var castPropAccess = Expression.Convert(propAccess, typeof(object));
-					var lambda = Expression.Lambda<Func<object, object>>(castPropAccess, paramExp);
-					Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
-				}
-			}
-		}
-
-		/// <summary>
-		/// Sets the value of the property
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="obj">The object.</param>
-		/// <param name="v">The value to set.</param>
-		public void SetValue(Script script, object obj, DynValue v)
+        /// <summary>
+        /// Sets the value of the property
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <param name="v">The value to set.</param>
+        public void SetValue<TFieldContainer>(Script script, TFieldContainer obj, DynValue v)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanWrite, obj);
 
 			if (IsReadonly || IsConst)
 				throw new ScriptRuntimeException("userdata field '{0}.{1}' cannot be written to.", this.FieldInfo.DeclaringType.Name, this.Name);
 
-			object value = ScriptToClrConversions.DynValueToObjectOfType(v, this.FieldInfo.FieldType, null, false);
+			object value = ScriptToClrConversions.DynValueToObject(v);
 
 			try
 			{
 				if (value is double)
 					value = NumericConversions.DoubleToType(FieldInfo.FieldType, (double)value);
 
-				FieldInfo.SetValue(IsStatic ? null : obj, value);
+				FieldInfo.SetValue(IsStatic ? default(TFieldContainer) : obj, value);
 			}
 			catch (ArgumentException)
 			{
@@ -200,12 +244,6 @@ namespace MoonSharp.Interpreter.Interop
 				else
 					return MemberDescriptorAccess.CanRead | MemberDescriptorAccess.CanWrite;
 			}
-		}
-
-		void IOptimizableDescriptor.Optimize()
-		{
-			if (m_OptimizedGetter == null)
-				this.OptimizeGetter();
 		}
 
 		/// <summary>

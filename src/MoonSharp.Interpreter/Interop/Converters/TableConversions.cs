@@ -89,15 +89,15 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		internal static object ConvertTableToType(Table table, Type t)
 		{
 			if (Framework.Do.IsAssignableFrom(t, typeof(Dictionary<object, object>)))
-				return TableToDictionary<object, object>(table, v => v.ToObject(), v => v.ToObject());
+				return TableToDictionary<object, object>(table, v => v.ToObject<object>(), v => v.ToObject<object>());
 			else if (Framework.Do.IsAssignableFrom(t, typeof(Dictionary<DynValue, DynValue>)))
 				return TableToDictionary<DynValue, DynValue>(table, v => v, v => v);
 			else if (Framework.Do.IsAssignableFrom(t, typeof(List<object>)))
-				return TableToList<object>(table, v => v.ToObject());
+				return TableToList<object>(table, v => v.ToObject<object>());
 			else if (Framework.Do.IsAssignableFrom(t, typeof(List<DynValue>)))
 				return TableToList<DynValue>(table, v => v);
 			else if (Framework.Do.IsAssignableFrom(t, typeof(object[])))
-				return TableToList<object>(table, v => v.ToObject()).ToArray();
+				return TableToList<object>(table, v => v.ToObject<object>()).ToArray();
 			else if (Framework.Do.IsAssignableFrom(t, typeof(DynValue[])))
 				return TableToList<DynValue>(table, v => v).ToArray();
 
@@ -141,10 +141,10 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 			foreach (var kvp in table.Pairs)
 			{
-				object key = ScriptToClrConversions.DynValueToObjectOfType(kvp.Key, keyType, null, false);
-				object val = ScriptToClrConversions.DynValueToObjectOfType(kvp.Value, valueType, null, false);
+				object key = ScriptToClrConversions.DynValueToTypedValue<object>(kvp.Key, null, false);
+				object val = ScriptToClrConversions.DynValueToTypedValue<object>(kvp.Value, null, false);
 
-				dic.Add(key, val);
+                dic.Add(key, val);
 			}
 
 			return dic;
@@ -160,8 +160,8 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			for (int i = 1, l = table.Length; i <= l; i++)
 			{
 				DynValue v = table.Get(i);
-				object o = ScriptToClrConversions.DynValueToObjectOfType(v, itemType, null, false);
-				lst.Add(o);
+				object o = ScriptToClrConversions.DynValueToTypedValue<object>(v, null, false);
+                lst.Add(o);
 			}
 
 			System.Collections.IList array = (System.Collections.IList)Activator.CreateInstance(arrayType, new object[] { lst.Count });
@@ -189,7 +189,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			for (int i = 1, l = table.Length; i <= l; i++)
 			{
 				DynValue v = table.Get(i);
-				object o = ScriptToClrConversions.DynValueToObjectOfType(v, itemType, null, false);
+				object o = ScriptToClrConversions.DynValueToTypedValue<object>(v, null, false);
 				lst.Add(o);
 			}
 

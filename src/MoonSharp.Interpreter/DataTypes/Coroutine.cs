@@ -90,7 +90,7 @@ namespace MoonSharp.Interpreter
 		{
 			foreach(DynValue v in AsTypedEnumerable())
 			{
-				yield return v.ToScalar().ToObject();
+				yield return v.ToScalar().ToObject<object>();
 			}
 		}
 

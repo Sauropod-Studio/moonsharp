@@ -215,7 +215,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="index">The index.</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public virtual DynValue Index(Script script, object obj, DynValue index, bool isDirectIndexing)
+		public virtual DynValue Index(Script script, IUserData obj, DynValue index, bool isDirectIndexing)
 		{
 			if (!isDirectIndexing)
 			{
@@ -302,7 +302,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="obj">The object.</param>
 		/// <param name="indexName">Member name to be indexed.</param>
 		/// <returns></returns>
-		protected virtual DynValue TryIndex(Script script, object obj, string indexName)
+		protected virtual DynValue TryIndex(Script script, IUserData obj, string indexName)
 		{
 			IMemberDescriptor desc;
 
@@ -323,7 +323,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="value">The value to be set</param>
 		/// <param name="isDirectIndexing">If set to true, it's indexed with a name, if false it's indexed through brackets.</param>
 		/// <returns></returns>
-		public virtual bool SetIndex(Script script, object obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public virtual bool SetIndex(Script script, IUserData obj, DynValue index, DynValue value, bool isDirectIndexing)
 		{
 			if (!isDirectIndexing)
 			{
@@ -410,9 +410,9 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// </summary>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public virtual string AsString(object obj)
+		public virtual string AsString(IUserData obj)
 		{
-			return (obj != null) ? obj.ToString() : null;
+			return (obj != null) ? obj.AsString() : null;
 		}
 
 
@@ -490,7 +490,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="metaname">The name of the metamember.</param>
 		/// </summary>
 		/// <returns></returns>
-		public virtual DynValue MetaIndex(Script script, object obj, string metaname)
+		public virtual DynValue MetaIndex(Script script, IUserData obj, string metaname)
 		{
 			IMemberDescriptor desc = m_MetaMembers.GetOrDefault(metaname);
 
@@ -558,7 +558,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 			{
 				return DynValue.NewCallback(
 					(context, args) =>
-						DynValue.NewBoolean(PerformComparison(obj, args[0].ToObject(), args[1].ToObject()) <= 0));
+						DynValue.NewBoolean(PerformComparison(obj, args[0].ToObject<object>(), args[1].ToObject<object>()) <= 0));
 			}
 
 			return null;
@@ -571,7 +571,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 			{
 				return DynValue.NewCallback(
 					(context, args) =>
-						DynValue.NewBoolean(PerformComparison(obj, args[0].ToObject(), args[1].ToObject()) < 0));
+						DynValue.NewBoolean(PerformComparison(obj, args[0].ToObject<object>(), args[1].ToObject<object>()) < 0));
 			}
 
 			return null;
@@ -594,7 +594,7 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		private DynValue MultiDispatchEqual(Script script, object obj)
 		{
 			return DynValue.NewCallback(
-				(context, args) => DynValue.NewBoolean(CheckEquality(obj, args[0].ToObject(), args[1].ToObject())));
+				(context, args) => DynValue.NewBoolean(CheckEquality(obj, args[0].ToObject<object>(), args[1].ToObject<object>())));
 		}
 
 
@@ -657,9 +657,9 @@ namespace MoonSharp.Interpreter.Interop.BasicDescriptors
 		/// <param name="type">The type.</param>
 		/// <param name="obj">The object.</param>
 		/// <returns></returns>
-		public virtual bool IsTypeCompatible(Type type, object obj)
+		public virtual bool IsTypeCompatible(Type type, IUserData obj)
 		{
-			return Framework.Do.IsInstanceOfType(type, obj);
+			return obj.UnderlyingType.IsAssignableFrom(type);
 		}
 	}
 }

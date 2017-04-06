@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using MoonSharp.Interpreter.Interop.RegistrationPolicies;
 
 namespace MoonSharp.Interpreter.Interop.Converters
 {
@@ -38,7 +37,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 			return null;
 		}
-
 
 		/// <summary>
 		/// Tries to convert a CLR object to a MoonSharp value, using "simple" logic.
@@ -100,7 +98,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		/// <summary>
 		/// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
 		/// </summary>
-		internal static DynValue ObjectToDynValue(Script script, object obj)
+		internal static DynValue ObjectToDynValue<T>(Script script, T obj)
 		{
 			DynValue v = TryObjectToSimpleDynValue(script, obj);
 
@@ -119,11 +117,11 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (v != null) return v;
 
 			if (obj is Delegate)
-				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)obj));
+				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)(object)obj));
 
 			if (obj is MethodInfo)
 			{
-				MethodInfo mi = (MethodInfo)obj;
+				MethodInfo mi = (MethodInfo)(object)obj;
 
 				if (mi.IsStatic)
 				{
@@ -150,13 +148,47 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			throw ScriptRuntimeException.ConvertObjectFailed(obj);
 		}
 
-		/// <summary>
-		/// Converts an IEnumerable or IEnumerator to a DynValue
-		/// </summary>
-		/// <param name="script">The script.</param>
-		/// <param name="obj">The object.</param>
-		/// <returns></returns>
-		public static DynValue EnumerationToDynValue(Script script, object obj)
+
+        /// <summary>
+        /// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
+        /// </summary>
+        internal static DynValue GenericToDynValue<T>(Script script, T value)
+        {
+            if (typeof (T).IsValueType)
+            {
+                return ValueTypeToDynValue(script, value);
+            }
+            return ObjectToDynValue(script, value);
+        }
+
+        /// <summary>
+        /// Tries to convert a CLR object to a value type, using "trivial" logic.
+        /// Skips on custom conversions, etc.
+        /// Does NOT throw on failure.
+        /// </summary>
+        internal static DynValue ValueTypeToDynValue<T>(Script script, T value)
+        {
+
+            Type t = value.GetType();
+
+            if (value is bool)
+                return DynValue.NewBoolean(ValueConverter<T,bool>.Instance.Convert(value));
+
+            if (NumericConversions.NumericTypes.Contains(t) || value is Enum)
+                return DynValue.NewNumber(ValueConverter<T, double>.Instance.Convert(value));
+
+
+            return null;
+        }
+
+
+        /// <summary>
+        /// Converts an IEnumerable or IEnumerator to a DynValue
+        /// </summary>
+        /// <param name="script">The script.</param>
+        /// <param name="obj">The object.</param>
+        /// <returns></returns>
+        public static DynValue EnumerationToDynValue(Script script, object obj)
 		{
 			if (obj is System.Collections.IEnumerable)
 			{
@@ -174,13 +206,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		}
 
 
-
-
-
-
-
-
-
         /// <summary>
         /// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
         /// </summary>
@@ -191,58 +216,143 @@ namespace MoonSharp.Interpreter.Interop.Converters
             throw ScriptRuntimeException.ConvertObjectFailed(obj);
         }
 
-        public sealed class StructDynValueBoxer<TIn> where TIn : struct
+    }
+    public sealed class ValueConverter<TIn, TOut>
+    {
+        public static readonly ValueConverter<TIn, TOut> Instance = new ValueConverter<TIn, TOut>();
+
+        public Func<TIn, TOut> Convert { get; }
+
+        private ValueConverter()
         {
-            public static readonly StructDynValueBoxer<TIn> Instance = new StructDynValueBoxer<TIn>();
-            private static Type[] typesToConvertToNumber = new Type[]
-            {
-                typeof(int), typeof(byte), typeof(short), typeof(int), typeof(Decimal),
-                typeof(float), typeof(double), typeof(long)
-            };
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
 
-            public Func<Script, TIn, DynValue> Create { get; }
+            Convert = (TIn TIn) => default(TOut);
 
-            private StructDynValueBoxer()
+            if (typeof(TIn) == typeof(TOut))
             {
-                var t = typeof(TIn);
-                if (t == typeof(bool))
-                {
-                    //TODO to DynValue 1 or 0
-                }
-                else if (typesToConvertToNumber.Contains(t))
-                {
-                    Create = (Script, inValue) => DynValue.NewNumber(StructValueConverter<TIn, double>.Instance.Convert(inValue));
-                }
-                else //TODO optimize this since we know we have a DynBox<T>
-                    Create = (sc, invalue) => DynValue.FromObject(sc, DynBox<TIn>.Request(invalue));
+                Convert = Expression.Lambda<Func<TIn, TOut>>(paramExpr,paramExpr).Compile();
             }
-        }
-        public sealed class StructValueConverter<TIn, TOut> where TIn : struct where TOut : struct
-        {
-            public static readonly StructValueConverter<TIn, TOut> Instance = new StructValueConverter<TIn, TOut>();
-
-            public Func<TIn, TOut> Convert { get; }
-
-            private StructValueConverter()
+            else if (typeof (TIn).IsValueType)
             {
-                var t = typeof(TIn);
-                var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
-                if (typeof(TIn) == typeof(TOut))
-                {
-                    Convert =
-                        Expression.Lambda<Func<TIn, TOut>>(paramExpr,
-                            // this conversion is legal as typeof(TIn) = typeof(TOut)
-                            paramExpr)
-                            .Compile();
-                }
-                else
+                if (IsPrimitiveConversion(typeof(TIn), typeof(TOut)) ||
+                     IsReferenceConversion(typeof(TIn), typeof(TOut)) ||
+                     GetUserDefinedCoercion(typeof(TIn), typeof(TOut)))
                 {
                     var p = Expression.Parameter(typeof(TIn), "in");
                     var c = Expression.ConvertChecked(p, typeof(TOut));
                     Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
                 }
             }
+            else
+            {
+                if (IsPrimitiveConversion(typeof (TIn), typeof (TOut)) ||
+                    IsReferenceConversion(typeof (TIn), typeof (TOut)) ||
+                    GetUserDefinedCoercion(typeof (TIn), typeof (TOut)))
+                {
+                    var p = Expression.Parameter(typeof (TIn), "in");
+                    var c = Expression.Convert(p, typeof (TOut));
+                    Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
+                }
+                else if(!typeof(TOut).IsValueType)
+                {
+                    var p = Expression.Parameter(typeof(TIn), "in");
+                    var c = Expression.TypeAs(p, typeof(TOut));
+                    Convert = Expression.Lambda<Func<TIn, TOut>>(c, p).Compile();
+                }
+            }
         }
 
+        internal static bool IsPrimitiveConversion(Type type, Type target)
+        {
+            if (IsNullableType(type) && target == GetNonNullableType(type))
+                return true;
+
+            if (IsNullableType(target) && type == GetNonNullableType(target))
+                return true;
+
+            if (IsConvertiblePrimitive(type) && IsConvertiblePrimitive(target))
+                return true;
+
+            return false;
+        }
+
+        static bool IsConvertiblePrimitive(Type type)
+        {
+            var t = GetNonNullableType(type);
+
+            if (t == typeof(bool))
+                return false;
+
+            if (t.IsEnum)
+                return true;
+
+            return t.IsPrimitive;
+        }
+
+        private static bool IsNullableType(Type type)
+        {
+            if (type.IsGenericType)
+                return type.GetGenericTypeDefinition() == typeof(Nullable<>);
+            return false;
+        }
+
+        internal static Type GetNonNullableType(Type type)
+        {
+            if (IsNullableType(type))
+                type = type.GetGenericArguments()[0];
+            return type;
+        }
+
+        internal static bool IsReferenceConversion(Type type, Type target)
+        {
+            if (type == typeof(object) || target == typeof(object))
+                return true;
+
+            //if (type.IsInterface || target.IsInterface)
+                //return true;
+
+            if (type.IsValueType || target.IsValueType)
+                return false;
+
+            if (target.IsAssignableFrom(type) || type.IsAssignableFrom(target))
+                return true;
+
+            return false;
+        }
+
+        private static bool GetUserDefinedCoercion(Type sourceType, Type convertToType)
+        {
+            Type nonNullableType1 = GetNonNullableType(sourceType);
+            Type nonNullableType2 = GetNonNullableType(convertToType);
+            MethodInfo[] methods1 = nonNullableType1.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo conversionOperator1 = FindConversionOperator(methods1, sourceType, convertToType);
+            if (conversionOperator1 != null)
+                return true;
+
+            MethodInfo[] methods2 = nonNullableType2.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            MethodInfo conversionOperator2 = FindConversionOperator(methods2, typeof(TIn), convertToType);
+            if (conversionOperator2 != null)
+                return true;
+            if (nonNullableType1 != typeof(TIn) || nonNullableType2 != convertToType)
+            {
+                MethodInfo method = FindConversionOperator(methods1, nonNullableType1, nonNullableType2) ?? FindConversionOperator(methods2, nonNullableType1, nonNullableType2);
+                if (method != null)
+                    return true;
+            }
+            return false;
+        }
+
+
+        private static MethodInfo FindConversionOperator(MethodInfo[] methods, Type typeFrom, Type typeTo)
+        {
+            foreach (MethodInfo methodInfo in methods)
+            {
+                if ((!(methodInfo.Name != "op_Implicit") || !(methodInfo.Name != "op_Explicit")) && (methodInfo.ReturnType == typeTo && methodInfo.GetParameters()[0].ParameterType == typeFrom))
+                    return methodInfo;
+            }
+            return (MethodInfo)null;
+        }
     }
 }

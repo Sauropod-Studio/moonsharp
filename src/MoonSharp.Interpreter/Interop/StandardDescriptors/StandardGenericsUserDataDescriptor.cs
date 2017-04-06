@@ -37,33 +37,33 @@ namespace MoonSharp.Interpreter.Interop
 		public Type Type { get; private set; }
 
 		/// <inheritdoc/>
-		public DynValue Index(Script script, object obj, DynValue index, bool isDirectIndexing)
+		public DynValue Index(Script script, IUserData obj, DynValue index, bool isDirectIndexing)
 		{
 			return null;
 		}
 
 		/// <inheritdoc/>
-		public bool SetIndex(Script script, object obj, DynValue index, DynValue value, bool isDirectIndexing)
+		public bool SetIndex(Script script, IUserData obj, DynValue index, DynValue value, bool isDirectIndexing)
 		{
 			return false;
 		}
 
 		/// <inheritdoc/>
-		public string AsString(object obj)
+		public string AsString(IUserData obj)
 		{
-			return obj.ToString();
+			return obj.AsString();
 		}
 
 		/// <inheritdoc/>
-		public DynValue MetaIndex(Script script, object obj, string metaname)
+		public DynValue MetaIndex(Script script, IUserData obj, string metaname)
 		{
 			return null;
 		}
 
 		/// <inheritdoc/>
-		public bool IsTypeCompatible(Type type, object obj)
+		public bool IsTypeCompatible(Type type, IUserData obj)
 		{
-			return Framework.Do.IsInstanceOfType(type, obj);
+			return obj.GetType().IsAssignableFrom(type);
 		}
 
 		/// <inheritdoc/>

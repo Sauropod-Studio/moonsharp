@@ -10,7 +10,7 @@ namespace MoonSharp.Interpreter.Interop
         /// <summary>
         /// Takes an instance of a target object and returns a proxy object wrapping it
         /// </summary>
-        UserData CreateProxyObject(UserData o);
+        IUserData CreateProxyObject(IUserData o);
 		/// <summary>
 		/// Gets the proxied type
 		/// </summary>

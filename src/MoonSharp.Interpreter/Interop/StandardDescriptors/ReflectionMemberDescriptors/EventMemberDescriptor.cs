@@ -159,12 +159,13 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object for which the facade should be written.</param>
 		/// <returns></returns>
-		public DynValue GetValue(Script script, object obj)
+		public DynValue GetValue<T>(Script script, T obj)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanRead, obj);
 
-			if (IsStatic) 
-				obj = this;
+            //TODO revise the whole pipeline of the various member descriptors
+			//if (IsStatic) 
+				//obj = this;
 
 			return UserData.Create(new EventFacade(this, obj));
 		}
@@ -327,7 +328,7 @@ namespace MoonSharp.Interpreter.Interop
 		/// <param name="script">The script.</param>
 		/// <param name="obj">The object.</param>
 		/// <param name="v">The v.</param>
-		public void SetValue(Script script, object obj, DynValue v)
+		public void SetValue<T>(Script script, T obj, DynValue v)
 		{
 			this.CheckAccess(MemberDescriptorAccess.CanWrite, obj);
 		}

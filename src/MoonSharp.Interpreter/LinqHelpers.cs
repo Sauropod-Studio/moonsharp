@@ -35,7 +35,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="enumerable">The enumerable.</param>
 		public static IEnumerable<object> AsObjects(this IEnumerable<DynValue> enumerable)
 		{
-			return enumerable.Select(v => v.ToObject());
+			return enumerable.Select(v => v.ToObject<object>());
 		}
 
 		/// <summary>
