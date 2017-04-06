@@ -222,10 +222,38 @@ namespace MoonSharp.Interpreter.CoreLib
 		[MoonSharpModuleMethod]
 		public static DynValue format(ScriptExecutionContext executionContext, CallbackArguments args)
 		{
-			return executionContext.EmulateClassicCall(args, "format", KopiLua_StringLib.str_format);
-		}
+            string format = args.AsString(0, "format");
+            string toreturn;
+            if (args.Count == 1) toreturn = string.Format(format);
+            if (args.Count == 2) toreturn = string.Format(format, args.RawGet(1, true).ToString());
+            if (args.Count == 3) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString());
+            if (args.Count == 4) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString(), args.RawGet(3, true).ToString());
+            else
+            {
+                string[] array = new string[args.Count - 1];
+                for (int i = 0; i != array.Length; i++)
+                {
+                    array[i] = args.RawGet(i + 1, true).ToString();
+                }
+                toreturn = string.Format(format, array);
+            }
+            return DynValue.NewString(toreturn);
+        }
 
+        [MoonSharpModuleMethod]
+        private static DynValue split(ScriptExecutionContext executionContext, CallbackArguments args)
+        {
+            string str = args.AsString(0, "split");
+            char split = args.AsString(1, "split")[0];
 
+            DynValue table = DynValue.NewTable(executionContext.OwnerScript);
+            string[] strs = str.Split(split);
+            for (int i = 0; i != strs.Length; i++)
+            {
+                table.Table.Set(i + 1, DynValue.NewString(strs[i]));
+            }
+            return table;
+        }
 
         [MoonSharpModuleMethod]
         public static DynValue reverse(ScriptExecutionContext executionContext, CallbackArguments args)

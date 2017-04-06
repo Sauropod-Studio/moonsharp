@@ -312,15 +312,25 @@ namespace MoonSharp.Interpreter
 			ResolveMultipleKeys(keys, out key).Set(key, value);
 		}
 
-		#endregion
+        #endregion
 
-		#region Get
+        #region Get
 
-		/// <summary>
-		/// Gets the value associated with the specified key.
-		/// </summary>
-		/// <param name="key">The key.</param>
-		public DynValue Get(string key)
+        /// <summary>
+        /// Gets the table associated with the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        public Table GetTable(string key)
+        {
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            return RawGet(key).Table ?? null;
+        }
+
+        /// <summary>
+        /// Gets the value associated with the specified key.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        public DynValue Get(string key)
 		{
 			//Contract.Ensures(Contract.Result<DynValue>() != null);
 			return RawGet(key) ?? DynValue.Nil;
