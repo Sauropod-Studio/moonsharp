@@ -112,7 +112,7 @@ namespace MoonSharp.Interpreter
         {
             T otherT;
             if (other.TryGet(out otherT))
-                return otherT.Equals(otherT);
+                return t.Equals(otherT);
             return false;
         }
     }
@@ -193,7 +193,7 @@ namespace MoonSharp.Interpreter
         {
             object otherT;
             if (other.TryGet(out otherT))
-                return otherT.Equals(otherT);
+                return _object.Equals(otherT);
             return false;
         }
 
