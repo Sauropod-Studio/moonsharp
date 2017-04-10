@@ -170,10 +170,9 @@ namespace MoonSharp.Interpreter.Interop.Converters
         /// </summary>
         internal static DynValue ValueTypeToDynValue<T>(Script script, T value)
         {
+            Type t = typeof(T);
 
-            Type t = value.GetType();
-
-            if (value is bool)
+            if (t == typeof(bool))
                 return DynValue.NewBoolean(ValueConverter<T,bool>.Instance.Convert(value));
 
             if (NumericConversions.NumericTypes.Contains(t) || value is Enum)
