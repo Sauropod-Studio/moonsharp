@@ -85,12 +85,12 @@ namespace MoonSharp.Interpreter.Interop.Converters
             if (desiredType.IsByRef)
 				desiredType = desiredType.GetElementType();
 
-			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion<T>(value.Type);
+			var converter = Script.GlobalOptions.CustomConverters.GetScriptToClrCustomConversion(value.Type, typeof(T));
 			if (converter != null)
 			{
                 var v = converter(value, desiredType);
 				if (v != null)
-                    return v;
+                    return (T)v;
 			}
 
 			if (desiredType == typeof(DynValue))

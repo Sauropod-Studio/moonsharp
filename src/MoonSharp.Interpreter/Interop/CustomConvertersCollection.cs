@@ -3,18 +3,6 @@ using System.Collections.Generic;
 
 namespace MoonSharp.Interpreter.Interop
 {
-    internal static class TypedCustomConvertersCollection<T>
-    {
-        static public Dictionary<Type, Func<DynValue, Type, T>>[] m_Script2Clr = new Dictionary<Type, Func<DynValue, Type, T>>[(int)LuaTypeExtensions.MaxConvertibleTypes + 1];
-        static public Dictionary<Type, Func<Script, T, DynValue>> m_Clr2Script = new Dictionary<Type, Func<Script, T, DynValue>>();
-
-        static TypedCustomConvertersCollection()
-        {
-            for (int i = 0; i < m_Script2Clr.Length; i++)
-                m_Script2Clr[i] = new Dictionary<Type, Func<DynValue, Type, T>>();
-        }
-    }
-
     /// <summary>
     /// A collection of custom converters between MoonSharp types and CLR types.
     /// If a converter function is not specified or returns null, the standard conversion path applies.
@@ -77,29 +65,6 @@ namespace MoonSharp.Interpreter.Interop
                 }
             }
             return map.GetOrDefault(clrDataType);
-        }
-
-        /// <summary>
-        /// Gets a custom converter from a script data type to a CLR data type, or null
-        /// </summary>
-        /// <param name="scriptDataType">The script data type</param>
-        /// <param name="clrDataType">The CLR data type.</param>
-        /// <returns>The converter function, or null if not found</returns>
-        public Func<DynValue, Type, T> GetScriptToClrCustomConversion<T>(DataType scriptDataType)
-        {
-            if ((int)scriptDataType > m_Script2Clr.Length)
-                return null;
-
-            Dictionary<Type, Func<DynValue, Type, T>> map = TypedCustomConvertersCollection<T>.m_Script2Clr[(int)scriptDataType];
-            foreach (var kvp in map)
-            {
-                Type t = kvp.Key;
-                if (t.IsAssignableFrom(typeof(T)))
-                {
-                    return map.GetOrDefault(t);
-                }
-            }
-            return map.GetOrDefault(typeof(T));
         }
 
         /// <summary>
