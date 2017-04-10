@@ -177,8 +177,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
             if (NumericConversions.NumericTypes.Contains(t) || value is Enum)
                 return DynValue.NewNumber(ValueConverter<T, double>.Instance.Convert(value));
 
-
-            return null;
+            return StructToDynValue(script, value);
         }
 
 
@@ -209,11 +208,12 @@ namespace MoonSharp.Interpreter.Interop.Converters
         /// <summary>
         /// Tries to convert a CLR object to a MoonSharp value, using more in-depth analysis
         /// </summary>
-        internal static DynValue StructToDynValue<T>(Script script, T obj) where T : struct
+        internal static DynValue StructToDynValue<T>(Script script, T obj)
         {
-            DynValue v = TryObjectToSimpleDynValue(script, obj);
-
-            throw ScriptRuntimeException.ConvertObjectFailed(obj);
+            DynValue v = ObjectToDynValue(script, obj);
+            if(v == null)
+                throw ScriptRuntimeException.ConvertObjectFailed(obj);
+            return v;
         }
 
     }
