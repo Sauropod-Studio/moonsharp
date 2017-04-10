@@ -50,8 +50,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (obj is DynValue)
 				return (DynValue)obj;
 
-
-			var converter = Script.GlobalOptions.CustomConverters.GetClrToScriptCustomConversion(obj.GetType());
+            var converter = Script.GlobalOptions.CustomConverters.GetClrToScriptCustomConversion(obj.GetType());
 			if (converter != null)
 			{
 				var v = converter(script, obj);
@@ -61,7 +60,10 @@ namespace MoonSharp.Interpreter.Interop.Converters
 
 			Type t = obj.GetType();
 
-			if (obj is string || obj is StringBuilder || obj is char)
+            if (obj is bool)
+                return DynValue.NewBoolean((bool)obj);
+
+            if (obj is string || obj is StringBuilder || obj is char)
 				return DynValue.NewString(obj.ToString());
 
 			if (obj is Closure)
