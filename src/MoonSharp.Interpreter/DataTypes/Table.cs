@@ -32,26 +32,12 @@ namespace MoonSharp.Interpreter
 			m_Owner = owner;
 		}
 
-		/// <summary>
-		/// Initializes a new instance of the <see cref="Table"/> class.
-		/// </summary>
-		/// <param name="owner">The owner.</param>
-		/// <param name="arrayValues">The values for the "array-like" part of the table.</param>
-		public Table(Script owner, params DynValue[] arrayValues)
-			: this(owner)
-		{
-			for (int i = 0; i < arrayValues.Length; i++)
-			{
-				this.Set(DynValue.NewNumber(i + 1), arrayValues[i]);
-			}
-		}
-
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
         /// <param name="owner">The owner.</param>
         /// <param name="arrayValues">The values for the "array-like" part of the table.</param>
-        public Table(Script owner, List<DynValue> arrayValues)
+        public Table(Script owner, IList<DynValue> arrayValues)
             : this(owner)
         {
             for (int i = 0; i < arrayValues.Count; i++)
@@ -60,10 +46,24 @@ namespace MoonSharp.Interpreter
             }
         }
 
-		/// <summary>
-		/// Gets the script owning this resource.
-		/// </summary>
-		public Script OwnerScript
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Table"/> class.
+        /// </summary>
+        /// <param name="owner">The owner.</param>
+        /// <param name="hashValue">The values for the "hash-like" part of the table.</param>
+        public Table(Script owner, ICollection<KeyValuePair<string, DynValue>> hashValue)
+            : this(owner)
+        {
+            foreach (KeyValuePair<string, DynValue> kvp in hashValue)
+            {
+                this.Set(kvp.Key, kvp.Value);
+            }
+        }
+
+        /// <summary>
+        /// Gets the script owning this resource.
+        /// </summary>
+        public Script OwnerScript
 		{
 			get { return m_Owner; }
 		}
