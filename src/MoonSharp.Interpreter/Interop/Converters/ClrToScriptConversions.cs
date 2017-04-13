@@ -179,7 +179,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
                 return DynValue.NewNumber(ValueConverter<T, double>.Instance.Convert(value));
 
             if (value is Enum)
-                return UserData.Create<T>(new LuaEnumProxy<T>(value));
+                return UserData.Create(new LuaEnumProxy<T>(value));
 
             return StructToDynValue(script, value);
         }
