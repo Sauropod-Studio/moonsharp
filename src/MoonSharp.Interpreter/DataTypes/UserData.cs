@@ -15,6 +15,7 @@ namespace MoonSharp.Interpreter
 
     public interface IUserData : IEquatable<IUserData>
     {
+        T Get<T>();
         bool TryGet<T>(out T param);
         bool TrySet<T>(T param);
         DynValue UserValue { get; set; }
@@ -79,6 +80,11 @@ namespace MoonSharp.Interpreter
         public bool Is(Type type) { return t.GetType().IsAssignableFrom(type); }
 
         public bool Is<TYPE>() { return t is TYPE; }
+
+        public TParam Get<TParam>()
+        {
+            return ValueConverter<T, TParam>.Instance.Convert(t);
+        }
 
         public bool TryGet<TParam>(out TParam param)
         {
@@ -167,6 +173,11 @@ namespace MoonSharp.Interpreter
 
         public bool HasValue() { return _object != null; }
         public string AsString() { return Descriptor.AsString(this); }
+
+        public TParam Get<TParam>()
+        {
+            return (TParam)_object;
+        }
 
         public bool TryGet<TParam>(out TParam param)
         {

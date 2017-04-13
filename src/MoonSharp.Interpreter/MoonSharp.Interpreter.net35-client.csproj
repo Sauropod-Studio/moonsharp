@@ -170,6 +170,7 @@
     <Compile Include="Interop\DescriptorHelpers.cs" />
     <Compile Include="Interop\BasicDescriptors\DispatchingUserDataDescriptor.cs" />
     <Compile Include="Interop\IGeneratorUserDataDescriptor.cs" />
+    <Compile Include="Interop\LuaEnumDescriptor.cs" />
     <Compile Include="Interop\PropertyTableAssigner.cs" />
     <Compile Include="Interop\ProxyObjects\DelegateProxyFactory.cs" />
     <Compile Include="Interop\ProxyObjects\IProxyFactory.cs" />
