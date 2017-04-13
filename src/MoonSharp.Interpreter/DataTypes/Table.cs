@@ -297,13 +297,26 @@ namespace MoonSharp.Interpreter
 				Set(DynValue.FromObject(OwnerScript, key), value);
 		}
 
-		/// <summary>
-		/// Sets the value associated with the specified keys.
-		/// Multiple keys can be used to access subtables.
+        /// <summary>
+		/// Sets the value associated with the specified key.
 		/// </summary>
-		/// <param name="key">The keys.</param>
+		/// <param name="key">The key.</param>
 		/// <param name="value">The value.</param>
-		public void Set(object[] keys, DynValue value)
+		public void Set<T>(T key, DynValue value)
+        {
+            if (key == null)
+                throw ScriptRuntimeException.TableIndexIsNil();
+
+            Set(DynValue.FromObject(OwnerScript, key), value);
+        }
+
+        /// <summary>
+        /// Sets the value associated with the specified keys.
+        /// Multiple keys can be used to access subtables.
+        /// </summary>
+        /// <param name="key">The keys.</param>
+        /// <param name="value">The value.</param>
+        public void Set(object[] keys, DynValue value)
 		{
 			if (keys == null || keys.Length <= 0)
 				throw ScriptRuntimeException.TableIndexIsNil();
@@ -367,14 +380,25 @@ namespace MoonSharp.Interpreter
 			return RawGet(key) ?? DynValue.Nil;
 		}
 
-		/// <summary>
-		/// Gets the value associated with the specified keys (expressed as an 
-		/// array of <see cref="System.Object"/>).
-		/// This will marshall CLR and MoonSharp objects in the best possible way.
-		/// Multiple keys can be used to access subtables.
+        /// <summary>
+		/// Gets the value associated with the specified key.
+		/// (expressed as a <see cref="System.Object"/>).
 		/// </summary>
-		/// <param name="keys">The keys to access the table and subtables</param>
-		public DynValue Get(params object[] keys)
+		/// <param name="key">The key.</param>
+		public DynValue Get<T>(T key)
+        {
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            return RawGet(key) ?? DynValue.Nil;
+        }
+
+        /// <summary>
+        /// Gets the value associated with the specified keys (expressed as an 
+        /// array of <see cref="System.Object"/>).
+        /// This will marshall CLR and MoonSharp objects in the best possible way.
+        /// Multiple keys can be used to access subtables.
+        /// </summary>
+        /// <param name="keys">The keys to access the table and subtables</param>
+        public DynValue Get(params object[] keys)
 		{
 			//Contract.Ensures(Contract.Result<DynValue>() != null);
 			return RawGet(keys) ?? DynValue.Nil;
@@ -448,14 +472,24 @@ namespace MoonSharp.Interpreter
 			return RawGet(DynValue.FromObject(OwnerScript, key));
 		}
 
-		/// <summary>
-		/// Gets the value associated with the specified keys (expressed as an
-		/// array of <see cref="System.Object"/>).
-		/// This will marshall CLR and MoonSharp objects in the best possible way.
-		/// Multiple keys can be used to access subtables.
+        /// <summary>
+		/// Gets the value associated with the specified key,
+		/// without bringing to Nil the non-existant values.
 		/// </summary>
-		/// <param name="keys">The keys to access the table and subtables</param>
-		public DynValue RawGet(params object[] keys)
+		/// <param name="key">The key.</param>
+		public DynValue RawGet<T>(T key)
+        {
+            return RawGet(DynValue.FromObject(OwnerScript, key));
+        }
+
+        /// <summary>
+        /// Gets the value associated with the specified keys (expressed as an
+        /// array of <see cref="System.Object"/>).
+        /// This will marshall CLR and MoonSharp objects in the best possible way.
+        /// Multiple keys can be used to access subtables.
+        /// </summary>
+        /// <param name="keys">The keys to access the table and subtables</param>
+        public DynValue RawGet(params object[] keys)
 		{
 			if (keys == null || keys.Length <= 0)
 				return null;

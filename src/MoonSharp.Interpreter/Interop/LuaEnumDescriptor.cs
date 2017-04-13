@@ -128,7 +128,7 @@ namespace MoonSharp.Interpreter.Interop
                 {
                     LuaEnumProxy<T> holder;
                     if (r_lhs.Type == DataType.UserData && r_lhs.UserData.TryGet(out holder)) { rhs = r_rhs; }
-                    if (r_rhs.Type == DataType.UserData && r_rhs.UserData.TryGet(out holder)) { rhs = r_lhs; }
+                    else if (r_rhs.Type == DataType.UserData && r_rhs.UserData.TryGet(out holder)) { rhs = r_lhs; }
                     else { return DynValue.False; }
                     lhs = holder.value;
                 }
