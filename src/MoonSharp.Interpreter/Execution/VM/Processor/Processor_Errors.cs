@@ -10,7 +10,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			{
 				return m_RootChunk.Code[instructionPtr].SourceCodeRef;
 			}
-			return null;
+			return default(SourceRef);
 		}
 
 

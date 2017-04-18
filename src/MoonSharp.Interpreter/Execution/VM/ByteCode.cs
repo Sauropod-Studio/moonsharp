@@ -14,7 +14,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		public List<Instruction> Code = new List<Instruction>();
 		public Script Script { get; private set; }
 		private List<SourceRef> m_SourceRefStack = new List<SourceRef>();
-		private SourceRef m_CurrentSourceRef = null;
+		private SourceRef m_CurrentSourceRef = default(SourceRef);
 
 		internal LoopTracker LoopTracker = new LoopTracker();
 
@@ -56,7 +56,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		public void PopSourceRef()
 		{
 			m_SourceRefStack.RemoveAt(m_SourceRefStack.Count - 1);
-			m_CurrentSourceRef = (m_SourceRefStack.Count > 0) ? m_SourceRefStack[m_SourceRefStack.Count - 1] : null;
+			m_CurrentSourceRef = (m_SourceRefStack.Count > 0) ? m_SourceRefStack[m_SourceRefStack.Count - 1] : default(SourceRef);
 		}
 
 	#if (!PCL) && ((!UNITY_5) || UNITY_STANDALONE) && (!(NETFX_CORE))

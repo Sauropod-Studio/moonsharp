@@ -5,12 +5,19 @@ namespace MoonSharp.Interpreter.Debugging
 	/// <summary>
 	/// Class representing a reference to source code interval
 	/// </summary>
-	public class SourceRef
+	public struct SourceRef
 	{
-		/// <summary>
-		/// Gets a value indicating whether this location is inside CLR .
-		/// </summary>
-		public bool IsClrLocation { get; private set; }
+	    private static long ID_GEN = 0;
+
+        /// <summary>
+        /// Gets a value indicating whether this location is inside CLR .
+        /// </summary>
+        public long Id { get; private set; }
+
+        /// <summary>
+        /// Gets a value indicating whether this location is inside CLR .
+        /// </summary>
+        public bool IsClrLocation { get; private set; }
 
 		/// <summary>
 		/// Gets the index of the source.
@@ -53,24 +60,32 @@ namespace MoonSharp.Interpreter.Debugging
 
 		public SourceRef(SourceRef src, bool isStepStop)
 		{
+		    Id = System.Threading.Interlocked.Increment(ref ID_GEN);
 			SourceIdx = src.SourceIdx;
 			FromChar = src.FromChar;
 			ToChar = src.ToChar;
 			FromLine = src.FromLine;
 			ToLine = src.ToLine;
-			IsStepStop = isStepStop;
+            IsClrLocation = src.IsClrLocation;
+            IsStepStop = isStepStop;
+		    Breakpoint = false;
+            CannotBreakpoint = false;
 		}
 
 
-		public SourceRef(int sourceIdx, int from, int to, int fromline, int toline, bool isStepStop)
+        public SourceRef(int sourceIdx, int from, int to, int fromline, int toline, bool isStepStop)
 		{
-			SourceIdx = sourceIdx;
+            Id = System.Threading.Interlocked.Increment(ref ID_GEN);
+            SourceIdx = sourceIdx;
 			FromChar = from;
 			ToChar = to;
 			FromLine = fromline;
 			ToLine = toline;
-			IsStepStop = isStepStop;
-		}
+            IsStepStop = isStepStop;
+            IsClrLocation = false;
+            Breakpoint = false;
+            CannotBreakpoint = false;
+        }
 
 		/// <summary>
 		/// Returns a <see cref="System.String" /> that represents this instance.
@@ -169,7 +184,7 @@ namespace MoonSharp.Interpreter.Debugging
 			return this;
 		}
 
-		/// <summary>
+	    /// <summary>
 		/// Formats the location according to script preferences
 		/// </summary>
 		/// <param name="script">The script.</param>
@@ -202,5 +217,36 @@ namespace MoonSharp.Interpreter.Debugging
 				return string.Format("{0}:({1},{2}-{3},{4})", sc.Name, this.FromLine, this.FromChar, this.ToLine, this.ToChar);
 			}
 		}
-	}
+
+	    public bool IsEmpty()
+	    {
+	        return Id != 0;
+	    }
+
+        public static bool operator ==(SourceRef a, SourceRef b)
+        {
+            return a.Equals(b);
+        }
+
+        public static bool operator !=(SourceRef a, SourceRef b)
+        {
+            return !a.Equals(b);
+        }
+
+        public bool Equals(SourceRef other)
+        {
+            return Id == other.Id;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            return obj is SourceRef && Equals((SourceRef)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
+        }
+    }
 }

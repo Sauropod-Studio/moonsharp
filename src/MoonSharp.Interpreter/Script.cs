@@ -873,7 +873,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		internal ScriptExecutionContext CreateDynamicExecutionContext(CallbackFunction func = null)
 		{
-			return new ScriptExecutionContext(m_MainProcessor, func, null, isDynamic: true);
+			return new ScriptExecutionContext(m_MainProcessor, func, default(SourceRef), isDynamic: true);
 		}
 
 		/// <summary>

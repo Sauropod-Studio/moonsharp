@@ -1,4 +1,5 @@
 ﻿using System;
+using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Execution.VM;
 using MoonSharp.Interpreter.Tree.Expressions;
@@ -28,7 +29,7 @@ namespace MoonSharp.Interpreter.Tree.Statements
 
 		private void RemoveBreakpointStop(Instruction instruction)
 		{
-			instruction.SourceCodeRef = null;
+			instruction.SourceCodeRef = default(SourceRef);
 		}
 	}
 }

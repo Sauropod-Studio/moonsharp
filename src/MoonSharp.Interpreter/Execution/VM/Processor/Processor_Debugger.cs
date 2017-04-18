@@ -65,7 +65,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 
 			if (m_Debug.DebuggerAttached.IsPauseRequested() ||
-				(instr.SourceCodeRef != null && instr.SourceCodeRef.Breakpoint && isOnDifferentRef))
+				(instr.SourceCodeRef.Breakpoint && isOnDifferentRef))
 			{
 				m_Debug.DebuggerCurrentAction = DebuggerAction.ActionType.None;
 				m_Debug.DebuggerCurrentActionTarget = -1;
@@ -85,10 +85,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 					if (m_ExecutionStack.Count >= m_Debug.ExStackDepthAtStep) return;
 					break;
 				case DebuggerAction.ActionType.StepIn:
-					if ((m_ExecutionStack.Count >= m_Debug.ExStackDepthAtStep) && (instr.SourceCodeRef == null || instr.SourceCodeRef == m_Debug.LastHlRef)) return;
+					if ((m_ExecutionStack.Count >= m_Debug.ExStackDepthAtStep) && (instr.SourceCodeRef == m_Debug.LastHlRef)) return;
 					break;
 				case DebuggerAction.ActionType.StepOver:
-					if (instr.SourceCodeRef == null || instr.SourceCodeRef == m_Debug.LastHlRef || m_ExecutionStack.Count > m_Debug.ExStackDepthAtStep) return;
+					if (instr.SourceCodeRef == m_Debug.LastHlRef || m_ExecutionStack.Count > m_Debug.ExStackDepthAtStep) return;
 					break;
 			}
 
@@ -161,18 +161,20 @@ namespace MoonSharp.Interpreter.Execution.VM
 		{
 			HashSet<int> result = new HashSet<int>();
 
-			foreach (SourceRef srf in src.Refs)
-			{
-				if (srf.CannotBreakpoint)
-					continue;
+		    for (int index = 0; index < src.Refs.Count; index++)
+		    {
+		        SourceRef srf = src.Refs[index];
+		        if (srf.CannotBreakpoint)
+		            continue;
 
-				srf.Breakpoint = lines.Contains(srf.FromLine);
+		        srf.Breakpoint = lines.Contains(srf.FromLine);
+		        src.Refs[index] = srf;
 
-				if (srf.Breakpoint)
-					result.Add(srf.FromLine);
-			}
+                if (srf.Breakpoint)
+		            result.Add(srf.FromLine);
+		    }
 
-			return result;
+		    return result;
 		}
 
 		private bool ToggleBreakPoint(DebuggerAction action, bool? state)
@@ -180,53 +182,59 @@ namespace MoonSharp.Interpreter.Execution.VM
 			SourceCode src = m_Script.GetSourceCode(action.SourceID);
 
 			bool found = false;
-			foreach (SourceRef srf in src.Refs)
-			{
-				if (srf.CannotBreakpoint)
-					continue;
+		    for (int index = 0; index < src.Refs.Count; index++)
+		    {
+		        SourceRef srf = src.Refs[index];
+		        if (srf.CannotBreakpoint)
+		            continue;
 
-				if (srf.IncludesLocation(action.SourceID, action.SourceLine, action.SourceCol))
-				{
-					found = true;
+		        if (srf.IncludesLocation(action.SourceID, action.SourceLine, action.SourceCol))
+		        {
+		            found = true;
 
-					//System.Diagnostics.Debug.WriteLine(string.Format("BRK: found {0} for {1} on contains", srf, srf.Type));
+		            //System.Diagnostics.Debug.WriteLine(string.Format("BRK: found {0} for {1} on contains", srf, srf.Type));
 
-					if (state == null)
-						srf.Breakpoint = !srf.Breakpoint;
-					else
-						srf.Breakpoint = state.Value;
+		            if (state == null)
+		                srf.Breakpoint = !srf.Breakpoint;
+		            else
+		                srf.Breakpoint = state.Value;
 
-					if (srf.Breakpoint)
-					{
-						m_Debug.BreakPoints.Add(srf);
-					}
-					else
-					{
-						m_Debug.BreakPoints.Remove(srf);
-					}
-				}
-			}
+                    src.Refs[index] = srf;
 
-			if (!found)
+                    if (srf.Breakpoint)
+		            {
+		                m_Debug.BreakPoints.Add(srf);
+		            }
+		            else
+		            {
+		                m_Debug.BreakPoints.Remove(srf);
+		            }
+		        }
+		    }
+
+		    if (!found)
 			{
 				int minDistance = int.MaxValue;
-				SourceRef nearest = null;
+				SourceRef nearest = default(SourceRef);
+			    bool foundNearest = false;
 
-				foreach (SourceRef srf in src.Refs)
-				{
-					if (srf.CannotBreakpoint)
-						continue;
+			    for (int index = 0; index < src.Refs.Count; index++)
+			    {
+			        SourceRef srf = src.Refs[index];
+			        if (srf.CannotBreakpoint)
+			            continue;
 
-					int dist = srf.GetLocationDistance(action.SourceID, action.SourceLine, action.SourceCol);
+			        int dist = srf.GetLocationDistance(action.SourceID, action.SourceLine, action.SourceCol);
 
-					if (dist < minDistance)
-					{
-						minDistance = dist;
-						nearest = srf;
-					}
-				}
+			        if (dist < minDistance)
+			        {
+			            minDistance = dist;
+			            nearest = srf;
+			            foundNearest = true;
+			        }
+			    }
 
-				if (nearest != null)
+			    if (foundNearest)
 				{
 					//System.Diagnostics.Debug.WriteLine(string.Format("BRK: found {0} for {1} on distance {2}", nearest, nearest.Type, minDistance));
 
