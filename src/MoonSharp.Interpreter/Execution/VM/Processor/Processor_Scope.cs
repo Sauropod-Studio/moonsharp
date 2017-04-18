@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.Remoting.Messaging;
 
 namespace MoonSharp.Interpreter.Execution.VM
 {
@@ -20,16 +21,19 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		public DynValue GetGenericSymbol(SymbolRef symref)
 		{
-			switch (symref.i_Type)
+            switch (symref.i_Type)
 			{
 				case  SymbolRefType.DefaultEnv:
 					return DynValue.NewTable(this.GetScript().Globals);
 				case SymbolRefType.Global:
 					return GetGlobalSymbol(GetGenericSymbol(symref.i_Env), symref.i_Name);
 				case SymbolRefType.Local:
-					return GetTopNonClrFunction().LocalScope[symref.i_Index];
+                    CallStackItem stackframe;
+                    GetTopNonClrFunction(out stackframe);
+                    return stackframe.LocalScope[symref.i_Index];
 				case SymbolRefType.Upvalue:
-					return GetTopNonClrFunction().ClosureScope[symref.i_Index];
+                    GetTopNonClrFunction(out stackframe);
+                    return stackframe.ClosureScope[symref.i_Index];
 				default:
 					throw new InternalErrorException("Unexpected {0} LRef at resolution: {1}", symref.i_Type, symref.i_Name);
 			}
@@ -61,7 +65,8 @@ namespace MoonSharp.Interpreter.Execution.VM
 					break;
 				case SymbolRefType.Local:
 					{
-						var stackframe = GetTopNonClrFunction();
+						CallStackItem stackframe;
+                        GetTopNonClrFunction(out stackframe);
 
 						DynValue v = stackframe.LocalScope[symref.i_Index];
 						if (v == null)
@@ -72,9 +77,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 					break;
 				case SymbolRefType.Upvalue:
 					{
-						var stackframe = GetTopNonClrFunction();
+                        CallStackItem stackframe;
+                        GetTopNonClrFunction(out stackframe);
 
-						DynValue v = stackframe.ClosureScope[symref.i_Index];
+                        DynValue v = stackframe.ClosureScope[symref.i_Index];
 						if (v == null)
 							stackframe.ClosureScope[symref.i_Index] = v = DynValue.NewNil();
 
@@ -90,19 +96,19 @@ namespace MoonSharp.Interpreter.Execution.VM
 			}
 		}
 
-		CallStackItem GetTopNonClrFunction()
+		bool GetTopNonClrFunction(out CallStackItem csi)
 		{
-			CallStackItem stackframe = null;
+			csi = default(CallStackItem);
 
 			for (int i = 0; i < m_ExecutionStack.Count; i++)
 			{
-				stackframe = m_ExecutionStack.Peek(i);
+                csi = m_ExecutionStack.Peek(i);
 
-				if (stackframe.ClrFunction == null)
-					break;
+				if (csi.ClrFunction == null)
+					return true;
 			}
 
-			return stackframe;
+			return false;
 		}
 
 
@@ -110,9 +116,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 		{
 			if (m_ExecutionStack.Count > 0)
 			{
-				CallStackItem stackframe = GetTopNonClrFunction();
+			    CallStackItem stackframe;
 
-				if (stackframe != null)
+				if (GetTopNonClrFunction(out stackframe))
 				{
 					if (stackframe.Debug_Symbols != null)
 					{

@@ -579,12 +579,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private void ExecBeginFn(Instruction i)
 		{
-			CallStackItem cur = m_ExecutionStack.Peek();
+			CallStackItem cur = m_ExecutionStack.Pop();
 
 			cur.Debug_Symbols = i.SymbolList;
 			cur.LocalScope = new DynValue[i.NumVal];
 
-			ClearBlockData(i);
+            m_ExecutionStack.Push(cur);
+
+            ClearBlockData(i);
 		}
 
 		private CallStackItem PopToBasePointer()

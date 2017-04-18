@@ -2,7 +2,7 @@
 
 namespace MoonSharp.Interpreter.Execution.VM
 {
-	internal class CallStackItem
+	internal struct CallStackItem
 	{
 		public int Debug_EntryPoint;
 		public SymbolRef[] Debug_Symbols;
