@@ -768,13 +768,12 @@ namespace MoonSharp.Interpreter.Execution.VM
 			throw ScriptRuntimeException.AttemptToCallNonFunc(fn.Type, debugText);
 		}
 
+        private readonly static List<DynValue> Args = new List<DynValue>(20); 
 		private int PerformTCO(int instructionPtr, int argsCount)
 		{
-			DynValue[] args = new DynValue[argsCount + 1];
-
 			// Remove all cur args and func ptr
 			for (int i = 0; i <= argsCount; i++)
-				args[i] = m_ValueStack.Pop();
+				Args[i] = m_ValueStack.Pop();
 
 			// perform a fake RET
 			CallStackItem csi = PopToBasePointer();
@@ -784,9 +783,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 			// Re-push all cur args and func ptr
 			for (int i = argsCount; i >= 0; i--)
-				m_ValueStack.Push(args[i]);
+				m_ValueStack.Push(Args[i]);
 
-			return retpoint;
+		    Args.Clear();
+
+            if (csi.LocalScope != null)
+                DynValueArray.Release(csi.LocalScope);
+
+            return retpoint;
 		}
 
 
