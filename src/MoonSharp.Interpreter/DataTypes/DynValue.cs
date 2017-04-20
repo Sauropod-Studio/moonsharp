@@ -958,9 +958,9 @@ namespace MoonSharp.Interpreter
 
 				if (desiredType == DataType.Number)
 				{
-					double? v = this.CastToNumber();
-					if (v.HasValue)
-						return DynValue.NewNumber(v.Value);
+					double v;
+					if (TryCastToNumber(out v))
+						return DynValue.NewNumber(v);
 				}
 
 				if (desiredType == DataType.String)
