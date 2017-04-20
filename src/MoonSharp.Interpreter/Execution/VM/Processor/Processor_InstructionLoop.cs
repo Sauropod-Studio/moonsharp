@@ -296,6 +296,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 						m_ValueStack.Push(handled);
 
+                        if (csi.LocalScope != null)
+                            DynValueArray.Release(csi.LocalScope);
+
 						goto repeat_execution;
 					}
 					else if ((csi.Flags & CallStackItemFlags.EntryPoint) != 0)
