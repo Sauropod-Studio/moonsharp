@@ -43,12 +43,12 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Shortcut for an empty closure
 		/// </summary>
-		private static ClosureContext emptyClosure = new ClosureContext();
+		private static ClosureContext emptyClosure = new ClosureContext(new SymbolRef[0], new DynValue[0]);
 
 		/// <summary>
 		/// The current closure context
 		/// </summary>
-		internal ClosureContext ClosureContext { get; private set; }
+		internal ClosureContext ClosureContext { get; }
 
 
 		/// <summary>
@@ -58,7 +58,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="idx">The index.</param>
 		/// <param name="symbols">The symbols.</param>
 		/// <param name="resolvedLocals">The resolved locals.</param>
-		internal Closure(Script script, int idx, SymbolRef[] symbols, IEnumerable<DynValue> resolvedLocals)
+		internal Closure(Script script, int idx, SymbolRef[] symbols, DynValue[] resolvedLocals)
 		{
 			OwnerScript = script;
 
@@ -69,6 +69,11 @@ namespace MoonSharp.Interpreter
 			else
 				ClosureContext = emptyClosure;
 		}
+
+	    ~Closure()
+	    {
+	        ClosureContext.ReleaseArray();
+	    }
 
 		/// <summary>
 		/// Calls this function no args, doesn't allocate an IList

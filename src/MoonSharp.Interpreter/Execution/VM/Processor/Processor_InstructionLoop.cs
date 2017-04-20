@@ -413,8 +413,11 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private void ExecClosure(Instruction i)
 		{
-			Closure c = new Closure(this.m_Script, i.NumVal, i.SymbolList,
-				i.SymbolList.Select(s => this.GetUpvalueSymbol(s)).ToList());
+		    DynValue[] values = DynValueArray.Request(i.SymbolList.Length);
+		    for (int index = 0; index < values.Length; index++)
+		        values[index] = GetUpvalueSymbol(i.SymbolList[index]);
+
+		    Closure c = new Closure(m_Script, i.NumVal, i.SymbolList, values);
 
 			m_ValueStack.Push(DynValue.NewClosure(c));
 		}

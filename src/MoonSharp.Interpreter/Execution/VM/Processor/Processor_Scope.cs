@@ -134,7 +134,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 					var closure = stackframe.ClosureScope;
 
-					if (closure != null)
+					if (!closure.IsEmpty())
 					{
 						for (int i = 0; i < closure.Symbols.Length; i++)
 							if (closure.Symbols[i] == name)
