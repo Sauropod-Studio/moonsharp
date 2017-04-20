@@ -373,14 +373,11 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 
 		private double EvalArithmetic(DynValue v1, DynValue v2)
 		{
-			double? nd1 = v1.CastToNumber();
-			double? nd2 = v2.CastToNumber();
+            double d1;
+            double d2;
 
-			if (nd1 == null || nd2 == null)
+			if (v1.TryCastToNumber(out d1) || v2.TryCastToNumber(out d2))
 				throw new DynamicExpressionException("Attempt to perform arithmetic on non-numbers.");
-
-			double d1 = nd1.Value;
-			double d2 = nd2.Value;
 
 			switch (m_Operator)
 			{

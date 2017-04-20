@@ -442,9 +442,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private void ExecToNum(Instruction i)
 		{
-			double? v = m_ValueStack.Pop().ToScalar().CastToNumber();
-			if (v.HasValue)
-				m_ValueStack.Push(DynValue.NewNumber(v.Value));
+			double v;
+			if (m_ValueStack.Pop().ToScalar().TryCastToNumber(out v))
+				m_ValueStack.Push(DynValue.NewNumber(v));
 			else
 				throw ScriptRuntimeException.ConvertToNumberFailed(i.NumVal);
 		}
@@ -805,6 +805,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			else if (i.NumVal == 1)
 			{
 				var retval = m_ValueStack.Pop();
+
 				csi = PopToBasePointer();
 				retpoint = csi.ReturnAddress;
 				var argscnt = (int)(m_ValueStack.Pop().Number);
@@ -888,12 +889,12 @@ namespace MoonSharp.Interpreter.Execution.VM
 			DynValue r = m_ValueStack.Pop().ToScalar();
 			DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+			double rn;
+			double ln;
 
-			if (ln.HasValue && rn.HasValue)
+			if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
 			{
-				m_ValueStack.Push(DynValue.NewNumber(ln.Value + rn.Value));
+				m_ValueStack.Push(DynValue.NewNumber(ln + rn));
 				return instructionPtr;
 			}
 			else
@@ -906,15 +907,15 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private int ExecSub(Instruction i, int instructionPtr)
 		{
-			DynValue r = m_ValueStack.Pop().ToScalar();
-			DynValue l = m_ValueStack.Pop().ToScalar();
+            DynValue r = m_ValueStack.Pop().ToScalar();
+            DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+            double rn;
+            double ln;
 
-			if (ln.HasValue && rn.HasValue)
-			{
-				m_ValueStack.Push(DynValue.NewNumber(ln.Value - rn.Value));
+            if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
+            {
+				m_ValueStack.Push(DynValue.NewNumber(ln - rn));
 				return instructionPtr;
 			}
 			else
@@ -928,15 +929,15 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private int ExecMul(Instruction i, int instructionPtr)
 		{
-			DynValue r = m_ValueStack.Pop().ToScalar();
-			DynValue l = m_ValueStack.Pop().ToScalar();
+            DynValue r = m_ValueStack.Pop().ToScalar();
+            DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+            double rn;
+            double ln;
 
-			if (ln.HasValue && rn.HasValue)
-			{
-				m_ValueStack.Push(DynValue.NewNumber(ln.Value * rn.Value));
+            if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
+            {
+				m_ValueStack.Push(DynValue.NewNumber(ln * rn));
 				return instructionPtr;
 			}
 			else
@@ -949,16 +950,16 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private int ExecMod(Instruction i, int instructionPtr)
 		{
-			DynValue r = m_ValueStack.Pop().ToScalar();
-			DynValue l = m_ValueStack.Pop().ToScalar();
+            DynValue r = m_ValueStack.Pop().ToScalar();
+            DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+            double rn;
+            double ln;
 
-			if (ln.HasValue && rn.HasValue)
-			{
-				double mod = Math.IEEERemainder(ln.Value, rn.Value);
-				if (mod < 0) mod += rn.Value;
+            if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
+            {
+				double mod = Math.IEEERemainder(ln, rn);
+				if (mod < 0) mod += rn;
 				m_ValueStack.Push(DynValue.NewNumber(mod));
 				return instructionPtr;
 			}
@@ -975,12 +976,12 @@ namespace MoonSharp.Interpreter.Execution.VM
 			DynValue r = m_ValueStack.Pop().ToScalar();
 			DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+            double rn;
+            double ln;
 
-			if (ln.HasValue && rn.HasValue)
-			{
-				m_ValueStack.Push(DynValue.NewNumber(ln.Value / rn.Value));
+            if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
+            {
+				m_ValueStack.Push(DynValue.NewNumber(ln / rn));
 				return instructionPtr;
 			}
 			else
@@ -995,12 +996,12 @@ namespace MoonSharp.Interpreter.Execution.VM
 			DynValue r = m_ValueStack.Pop().ToScalar();
 			DynValue l = m_ValueStack.Pop().ToScalar();
 
-			double? rn = r.CastToNumber();
-			double? ln = l.CastToNumber();
+            double rn;
+            double ln;
 
-			if (ln.HasValue && rn.HasValue)
-			{
-				m_ValueStack.Push(DynValue.NewNumber(Math.Pow(ln.Value, rn.Value)));
+            if (r.TryCastToNumber(out rn) && l.TryCastToNumber(out ln))
+            {
+				m_ValueStack.Push(DynValue.NewNumber(Math.Pow(ln, rn)));
 				return instructionPtr;
 			}
 			else
@@ -1015,11 +1016,11 @@ namespace MoonSharp.Interpreter.Execution.VM
 		private int ExecNeg(Instruction i, int instructionPtr)
 		{
 			DynValue r = m_ValueStack.Pop().ToScalar();
-			double? rn = r.CastToNumber();
+            double rn;
 
-			if (rn.HasValue)
-			{
-				m_ValueStack.Push(DynValue.NewNumber(-rn.Value));
+            if (r.TryCastToNumber(out rn))
+            {
+				m_ValueStack.Push(DynValue.NewNumber(-rn));
 				return instructionPtr;
 			}
 			else

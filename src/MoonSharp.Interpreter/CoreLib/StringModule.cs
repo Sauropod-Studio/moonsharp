@@ -60,11 +60,8 @@ namespace MoonSharp.Interpreter.CoreLib
 
 				if (v.Type == DataType.String)
 				{
-					double? nd = v.CastToNumber();
-					if (nd == null)
+					if (!v.TryCastToNumber(out d))
 						args.AsType(i, "char", DataType.Number, false);
-					else
-						d = nd.Value;
 				}
 				else
 				{

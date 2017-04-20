@@ -753,20 +753,23 @@ namespace MoonSharp.Interpreter
 		/// Casts this DynValue to a double, using coercion if the type is string.
 		/// </summary>
 		/// <returns>The string representation, or null if not number, not string or non-convertible-string.</returns>
-		public double? CastToNumber()
+		public bool TryCastToNumber(out double d)
 		{
 			DynValue rv = ToScalar();
-			if (rv.Type == DataType.Number)
+		    bool castSuccessful = rv.Type == DataType.Number;
+			if(castSuccessful)
 			{
-				return rv.Number;
+				d = rv.Number;
 			}
 			else if (rv.Type == DataType.String)
 			{
-				double num;
-				if (double.TryParse(rv.String, NumberStyles.Any, CultureInfo.InvariantCulture, out num))
-					return num;
+			    castSuccessful = double.TryParse(rv.String, NumberStyles.Any, CultureInfo.InvariantCulture, out d);
 			}
-			return null;
+			else
+			{
+			    d = default(double);
+			}
+			return castSuccessful;
 		}
 
 

@@ -254,12 +254,12 @@ namespace MoonSharp.Interpreter.CoreLib
 			{
 				DynValue lenv = executionContext.GetScript().Call(__len, vlist);
 
-				double? len = lenv.CastToNumber();
+			    double len;
 
-				if (len == null)
-					throw new ScriptRuntimeException("object length is not a number");
+			    if (lenv.TryCastToNumber(out len))
+                    return (int) len;
 
-				return (int)len;
+			    throw new ScriptRuntimeException("object length is not a number");
 			}
 			else
 			{

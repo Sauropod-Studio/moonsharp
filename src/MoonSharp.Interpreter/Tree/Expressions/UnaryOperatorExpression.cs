@@ -51,10 +51,10 @@ namespace MoonSharp.Interpreter.Tree.Expressions
 					return v.GetLength();
 				case "-":
 					{
-						double? d = v.CastToNumber();
+						double d;
 
-						if (d.HasValue)
-							return DynValue.NewNumber(-d.Value);
+						if (v.TryCastToNumber(out d))
+							return DynValue.NewNumber(-d);
 
 						throw new DynamicExpressionException("Attempt to perform arithmetic on non-numbers.");
 					}

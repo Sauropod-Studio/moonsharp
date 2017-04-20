@@ -90,10 +90,10 @@ namespace MoonSharp.Interpreter.CoreLib
 		private static int? GetTimeTableField(Table t, string key)
 		{
 			DynValue v = t.Get(key);
-			double? d = v.CastToNumber();
+			double d;
 
-			if (d.HasValue)
-				return (int)d.Value;
+			if (v.TryCastToNumber(out d))
+				return (int)d;
 
 			return null;
 		}

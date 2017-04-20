@@ -186,7 +186,7 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (n2 < 0 || n2 >= c2.ClosureContext.Count)
 				throw ScriptRuntimeException.BadArgument(3, "upvaluejoin", "invalid upvalue index");
 
-			c2.ClosureContext[n2] = c1.ClosureContext[n1];
+			c2.ClosureContext.Values[n2] = c1.ClosureContext.Values[n1];
 
 			return DynValue.Void;
 		}
@@ -219,7 +219,8 @@ namespace MoonSharp.Interpreter.CoreLib
 
 			string message = vmessage.CastToString();
 
-			int skip = (int)((vlevel.CastToNumber()) ?? defaultSkip);
+		    double d;
+			int skip = (int)(vlevel.TryCastToNumber(out d)? d:defaultSkip);
 
 			WatchItem[] stacktrace = cor.GetStackTrace(Math.Max(0, skip));
 
