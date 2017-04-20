@@ -115,8 +115,10 @@ namespace MoonSharp.Interpreter
 		    m_HashCode = -1;
             m_ReadOnly = false;
 		    m_Number = 0;
-		    m_Object = null;
-		    m_Type = 0;
+            if (m_Type == DataType.Tuple)
+                DynValueArray.Release(m_Object as DynValue[]);
+            m_Type = 0;
+            m_Object = null;
             lock (_pool)
             {
                 if (_pool.Count < MAX_POOL_SIZE)
@@ -348,29 +350,74 @@ namespace MoonSharp.Interpreter
             return d;
         }
 
-		/// <summary>
-		/// Creates a new tuple initialized to the specified values.
-		/// </summary>
-		public static DynValue NewTuple(params DynValue[] values)
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values.
+        /// </summary>
+        public static DynValue NewTuple(DynValue value)
+        {
+            return value;
+        }
+
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values.
+        /// </summary>
+        public static DynValue NewTuple(DynValue value0, DynValue value1)
+        {
+            var array = DynValueArray.Request(2);
+            array[0] = value0;
+            array[1] = value1;
+            return _NewTuple(array);
+        }
+
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values.
+        /// </summary>
+        public static DynValue NewTuple(DynValue value0, DynValue value1, DynValue value2)
+        {
+            var array = DynValueArray.Request(3);
+            array[0] = value0;
+            array[1] = value1;
+            array[2] = value2;
+            return _NewTuple(array);
+        }
+
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values.
+        /// </summary>
+        public static DynValue NewTuple(DynValue value0, DynValue value1, DynValue value2, DynValue value3)
+        {
+            var array = DynValueArray.Request(4);
+            array[0] = value0;
+            array[1] = value1;
+            array[2] = value2;
+            array[3] = value3;
+            return _NewTuple(array);
+        }
+
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values.
+        /// </summary>
+        public static DynValue NewTuple(params DynValue[] values)
 		{
             if (values.Length == 0)
                 return NewNil();
-
             if (values.Length == 1)
                 return values[0];
-
-            var d = Request();
-
-            d.m_Object = values;
-            d.m_Type = DataType.Tuple;
-
-            return d;
+            return _NewTuple(values);
 		}
 
-		/// <summary>
-		/// Creates a new tuple initialized to the specified values - which can be potentially other tuples
-		/// </summary>
-		public static DynValue NewTupleNested(params DynValue[] values)
+        private static DynValue _NewTuple(DynValue[] values)
+        {
+            var d = Request();
+            d.m_Object = values;
+            d.m_Type = DataType.Tuple;
+            return d;
+        }
+
+        /// <summary>
+        /// Creates a new tuple initialized to the specified values - which can be potentially other tuples
+        /// </summary>
+        public static DynValue NewTupleNested(params DynValue[] values)
 		{
 			if (!values.Any(v => v.Type == DataType.Tuple))
 				return NewTuple(values);
