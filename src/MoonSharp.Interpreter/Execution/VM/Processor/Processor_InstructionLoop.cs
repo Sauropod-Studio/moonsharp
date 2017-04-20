@@ -588,7 +588,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			CallStackItem cur = m_ExecutionStack.Pop();
 
 			cur.Debug_Symbols = i.SymbolList;
-			cur.LocalScope = new DynValue[i.NumVal];
+			cur.LocalScope = DynValueArray.Request(i.NumVal);
 
             m_ExecutionStack.Push(cur);
 
