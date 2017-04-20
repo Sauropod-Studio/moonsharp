@@ -828,10 +828,17 @@ namespace MoonSharp.Interpreter.Execution.VM
 				throw new InternalErrorException("RET supports only 0 and 1 ret val scenarios");
 			}
 
+			var args = DynValueArray.Request(1);
+			args[0] = m_ValueStack.Pop();
+
 			if (csi.Continuation != null)
 				m_ValueStack.Push(csi.Continuation.Invoke(new ScriptExecutionContext(this, csi.Continuation, i.SourceCodeRef),
-					new DynValue[1] { m_ValueStack.Pop() }));
+					args));
 
+			DynValueArray.Release(args);
+
+			if (csi.LocalScope != null)
+				DynValueArray.Release(csi.LocalScope);
 			return retpoint;
 		}
 
