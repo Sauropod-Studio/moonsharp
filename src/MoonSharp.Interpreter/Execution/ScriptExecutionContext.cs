@@ -8,7 +8,7 @@ namespace MoonSharp.Interpreter
 	/// <summary>
 	/// Class giving access to details of the environment where the script is executing
 	/// </summary>
-	public class ScriptExecutionContext : IScriptPrivateResource
+	public struct ScriptExecutionContext : IScriptPrivateResource
 	{
 		Processor m_Processor;
 		CallbackFunction m_Callback;

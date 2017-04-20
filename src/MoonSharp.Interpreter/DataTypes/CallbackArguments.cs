@@ -6,11 +6,11 @@ namespace MoonSharp.Interpreter
 	/// <summary>
 	/// This class is a container for arguments received by a CallbackFunction
 	/// </summary>
-	public class CallbackArguments
+	public struct CallbackArguments
 	{
 		IList<DynValue> m_Args;
 		int m_Count;
-		bool m_LastIsTuple = false;
+		bool m_LastIsTuple;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="CallbackArguments" /> class.
@@ -20,8 +20,9 @@ namespace MoonSharp.Interpreter
 		public CallbackArguments(IList<DynValue> args, bool isMethodCall)
 		{
 			m_Args = args;
+		    m_LastIsTuple = false;
 
-			if (m_Args.Count > 0)
+            if (m_Args.Count > 0)
 			{
 				var last = m_Args[m_Args.Count - 1];
 

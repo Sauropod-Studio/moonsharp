@@ -18,7 +18,7 @@ namespace MoonSharp.Interpreter.Interop
 		{
 			Script s = new Script();
 			var exp = s.CreateDynamicExpression(serializedTableValue);
-			DynValue val = exp.Evaluate(null);
+			DynValue val = exp.Evaluate();
 
 			m_Value = val.Table.Get(1);
 			Name = name;
