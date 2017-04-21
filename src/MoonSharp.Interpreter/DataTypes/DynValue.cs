@@ -1065,70 +1065,111 @@ namespace MoonSharp.Interpreter
         public static DynValue[] Request(int i)
         {
             Stack<DynValue[]> pool;
+            DynValue[] array;
             switch (i)
             {
                 case 0:
                     return _zeroSized;
                 case 1:
-                    pool = _oneSized;
+                    lock (_oneSized)
+                    { 
+                        array = _oneSized.Count == 0 ? new DynValue[i] : _oneSized.Pop();
+                    }
                     break;
                 case 2:
-                    pool = _twoSized;
+                    lock (_twoSized)
+                    {
+                        array = _twoSized.Count == 0 ? new DynValue[i] : _twoSized.Pop();
+                    }
                     break;
                 case 3:
-                    pool = _threeSized;
+                    lock (_threeSized)
+                    {
+                        array = _threeSized.Count == 0 ? new DynValue[i] : _threeSized.Pop();
+                    }
                     break;
                 case 4:
-                    pool = _fourSized;
+                    lock (_fourSized)
+                    {
+                        array = _fourSized.Count == 0 ? new DynValue[i] : _fourSized.Pop();
+                    }
                     break;
                 case 5:
-                    pool = _fiveSized;
+                    lock (_fiveSized)
+                    {
+                        array = _fiveSized.Count == 0 ? new DynValue[i] : _fiveSized.Pop();
+                    }
                     break;
                 case 6:
-                    pool = _sixSized;
+                    lock (_sixSized)
+                    {
+                        array = _sixSized.Count == 0 ? new DynValue[i] : _sixSized.Pop();
+                    }
                     break;
                 default:
                     return new DynValue[i];
             }
-            if (pool.Count > 0)
-                return pool.Pop();
-            else
-                return new DynValue[i];
+            return array;
         }
 
         public static void Release(DynValue[] values)
         {
-            Stack<DynValue[]> pool;
             switch (values.Length)
             {
                 case 0:
                     goto default;
                 case 1:
-                    pool = _oneSized;
+                    lock (_oneSized)
+                    {
+                        if (_oneSized.Count < PoolSize)
+                            return;
+                        _oneSized.Push(values);
+                    }
                     break;
                 case 2:
-                    pool = _twoSized;
+                    lock (_twoSized)
+                    {
+                        if (_twoSized.Count < PoolSize)
+                            return;
+                        _twoSized.Push(values);
+                    }
                     break;
                 case 3:
-                    pool = _threeSized;
+                    lock (_threeSized)
+                    {
+                        if (_threeSized.Count < PoolSize)
+                            return;
+                        _threeSized.Push(values);
+                    }
                     break;
                 case 4:
-                    pool = _fourSized;
+                    lock (_fourSized)
+                    {
+                        if (_fourSized.Count < PoolSize)
+                            return;
+                        _fourSized.Push(values);
+                    }
                     break;
                 case 5:
-                    pool = _fiveSized;
+                    lock (_fiveSized)
+                    {
+                        if (_fiveSized.Count < PoolSize)
+                            return;
+                        _fiveSized.Push(values);
+                    }
                     break;
                 case 6:
-                    pool = _sixSized;
+                    lock (_sixSized)
+                    {
+                        if (_sixSized.Count < PoolSize)
+                            return;
+                        _sixSized.Push(values);
+                    }
                     break;
                 default:
                     return;
             }
-            if (pool.Count < PoolSize)
-            { 
-                pool.Push(values);
-                Array.Clear(values,0,values.Length);
-            }
+            Array.Clear(values, 0, values.Length);
         }
     }
 }
