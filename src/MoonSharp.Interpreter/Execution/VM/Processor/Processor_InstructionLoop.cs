@@ -612,37 +612,35 @@ namespace MoonSharp.Interpreter.Execution.VM
 			return xs.ReturnAddress;
 		}
 
-		private IList<DynValue> CreateArgsListForFunctionCall(int numargs, int offsFromTop)
+		private void PopulateArgsListForFunctionCall(IList<DynValue> values, int numargs, int offsFromTop)
 		{
-			if (numargs == 0) return new DynValue[0];
+			if (numargs == 0) return;
 
 			DynValue lastParam = m_ValueStack.Peek(offsFromTop);
 
 			if (lastParam.Type == DataType.Tuple && lastParam.Tuple.Length > 1)
 			{
-				List<DynValue> values = new List<DynValue>();
-
 				for (int idx = 0; idx < numargs - 1; idx++)
 					values.Add(m_ValueStack.Peek(numargs - idx - 1 + offsFromTop));
 
 				for (int idx = 0; idx < lastParam.Tuple.Length; idx++)
 					values.Add(lastParam.Tuple[idx]);
-
-				return values;
 			}
 			else
 			{
-				return new Slice<DynValue>(m_ValueStack, m_ValueStack.Count - numargs - offsFromTop, numargs, false);
+				for (int idx = 0; idx < numargs; idx++)
+					values.Add(m_ValueStack.Peek(numargs - idx - 1 + offsFromTop));
 			}
 		}
 
 
+        static readonly List<DynValue> argsList = new List<DynValue>(64);
 		private void ExecArgs(Instruction I)
 		{
 			int numargs = (int)m_ValueStack.Peek(0).Number;
 
 			// unpacks last tuple arguments to simplify a lot of code down under
-			var argsList = CreateArgsListForFunctionCall(numargs, 1);
+			PopulateArgsListForFunctionCall(argsList, numargs, 1);
 
 			for (int i = 0; i < I.SymbolList.Length; i++)
 			{
@@ -653,24 +651,23 @@ namespace MoonSharp.Interpreter.Execution.VM
 				else if ((i == I.SymbolList.Length - 1) && (I.SymbolList[i].i_Name == WellKnownSymbols.VARARGS))
 				{
 					int len = argsList.Count - i;
-					DynValue[] varargs = new DynValue[len];
+					DynValue[] varargs = DynValueArray.Request(len);
 
 					for (int ii = 0; ii < len; ii++, i++)
 					{
 						varargs[ii] = argsList[i].ToScalar().CloneAsWritable();
 					}
-
-					this.AssignLocal(I.SymbolList[I.SymbolList.Length - 1], DynValue.NewTuple(Internal_AdjustTuple(varargs)));
+				    var adjustedArgs = Internal_AdjustTuple(varargs);
+                    DynValueArray.Release(varargs);
+                    this.AssignLocal(I.SymbolList[I.SymbolList.Length - 1], DynValue.NewTuple(adjustedArgs));
 				}
 				else
 				{
 					this.AssignLocal(I.SymbolList[i], argsList[i].ToScalar().CloneAsWritable());
 				}
 			}
-		}
-
-
-
+            argsList.Clear();
+        }
 
 		private int Internal_ExecCall(int argsCount, int instructionPtr, CallbackFunction handler = null,
 			CallbackFunction continuation = null, bool thisCall = false, string debugText = null, DynValue unwindHandler = null)
@@ -704,11 +701,10 @@ namespace MoonSharp.Interpreter.Execution.VM
 			}
 
 
-
 			if (fn.Type == DataType.ClrFunction)
 			{
 				//IList<DynValue> args = new Slice<DynValue>(m_ValueStack, m_ValueStack.Count - argsCount, argsCount, false);
-				IList<DynValue> args = CreateArgsListForFunctionCall(argsCount, 0);
+				PopulateArgsListForFunctionCall(argsList, argsCount, 0);
 				// we expand tuples before callbacks
 				// args = DynValue.ExpandArgumentsToList(args);
 				SourceRef sref = GetCurrentSourceRef(instructionPtr);
@@ -725,7 +721,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 					Flags = flags,
 				});
 
+				DynValue[] args = DynValueArray.Request(argsCount);
+				for (int index = 0; index < argsList.Count; index++)
+					args[index] = argsList[index];
+				argsList.Clear();
+
 				var ret = fn.Callback.Invoke(new ScriptExecutionContext(this, fn.Callback, sref), args, isMethodCall: thisCall);
+				DynValueArray.Release(args);
+
 				m_ValueStack.RemoveLast(argsCount + 1);
 				m_ValueStack.Push(ret);
 
