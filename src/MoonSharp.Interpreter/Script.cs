@@ -472,10 +472,7 @@ namespace MoonSharp.Interpreter
 					new SymbolRef() { i_Env = null, i_Index= 0, i_Name = WellKnownSymbols.ENV, i_Type =  SymbolRefType.DefaultEnv },
 				};
 
-				var vals = new DynValue[] {
-					DynValue.NewTable(envTable)
-				};
-
+				var vals = new DynValue[] { DynValue.NewTable(envTable) };
 				c = new Closure(this, address, syms, vals);
 			}
 
