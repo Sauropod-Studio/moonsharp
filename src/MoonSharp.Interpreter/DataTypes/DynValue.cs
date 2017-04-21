@@ -115,8 +115,8 @@ namespace MoonSharp.Interpreter
 		    m_HashCode = -1;
             m_ReadOnly = false;
 		    m_Number = 0;
-            if (m_Type == DataType.Tuple)
-                DynValueArray.Release(m_Object as DynValue[]);
+            //if (m_Type == DataType.Tuple)
+            //    DynValueArray.Release(m_Object as DynValue[]);
             m_Type = 0;
             m_Object = null;
             lock (_pool)
@@ -406,7 +406,7 @@ namespace MoonSharp.Interpreter
             return _NewTuple(values);
 		}
 
-        private static DynValue _NewTuple(DynValue[] values)
+        internal static DynValue _NewTuple(DynValue[] values)
         {
             var d = Request();
             d.m_Object = values;
