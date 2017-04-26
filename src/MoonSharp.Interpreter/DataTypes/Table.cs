@@ -148,7 +148,7 @@ namespace MoonSharp.Interpreter
 			{
 				DynValue vt = t.RawGet(key);
 
-				if (vt == null)
+				if (!vt.IsValid)
 					throw new ScriptRuntimeException("Key '{0}' did not point to anything");
 
 				if (vt.Type != DataType.Table)
@@ -178,7 +178,7 @@ namespace MoonSharp.Interpreter
 			TablePair prev = listIndex.Set(key, new TablePair(keyDynValue, value));
 
 			// If this is an insert, we can invalidate all iterators and collect dead keys
-			if (m_ContainsNilEntries && value.IsNotNil() && (prev.Value == null || prev.Value.IsNil()))
+			if (m_ContainsNilEntries && value.IsNotNil() && (prev.Value.IsNil()))
 			{
 				CollectDeadKeys();
 			}
@@ -193,13 +193,13 @@ namespace MoonSharp.Interpreter
 			else if (isNumber)
 			{
 				// If this is an array insert, we might have to invalidate the array length
-				if (prev.Value == null || prev.Value.IsNilOrNan())
+				if (prev.Value.IsNilOrNan())
 				{
 					// If this is an array append, let's check the next element before blindly invalidating
 					if (appendKey >= 0)
 					{
 						LinkedListNode<TablePair> next = m_ArrayMap.Find(appendKey + 1);
-						if (next == null || next.Value.Value == null || next.Value.Value.IsNil())
+						if (next == null || next.Value.Value.IsNil())
 						{
 							m_CachedLength += 1;
 						}
@@ -345,9 +345,10 @@ namespace MoonSharp.Interpreter
         /// <param name="key">The key.</param>
         public DynValue Get(string key)
 		{
-			//Contract.Ensures(Contract.Result<DynValue>() != null);
-			return RawGet(key) ?? DynValue.Nil;
-		}
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            var d = RawGet(key);
+            return d.IsValid ? d : DynValue.Nil;
+        }
 
 		/// <summary>
 		/// Gets the value associated with the specified key.
@@ -355,9 +356,10 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue Get(int key)
 		{
-			//Contract.Ensures(Contract.Result<DynValue>() != null);
-			return RawGet(key) ?? DynValue.Nil;
-		}
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            var d = RawGet(key);
+            return d.IsValid ? d : DynValue.Nil;
+        }
 
 		/// <summary>
 		/// Gets the value associated with the specified key.
@@ -365,9 +367,10 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue Get(DynValue key)
 		{
-			//Contract.Ensures(Contract.Result<DynValue>() != null);
-			return RawGet(key) ?? DynValue.Nil;
-		}
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            var d = RawGet(key);
+            return d.IsValid ? d : DynValue.Nil;
+        }
 
 		/// <summary>
 		/// Gets the value associated with the specified key.
@@ -376,9 +379,10 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue Get(object key)
 		{
-			//Contract.Ensures(Contract.Result<DynValue>() != null);
-			return RawGet(key) ?? DynValue.Nil;
-		}
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            var d = RawGet(key);
+            return d.IsValid ? d : DynValue.Nil;
+        }
 
         /// <summary>
 		/// Gets the value associated with the specified key.
@@ -388,7 +392,8 @@ namespace MoonSharp.Interpreter
 		public DynValue Get<T>(T key)
         {
             //Contract.Ensures(Contract.Result<DynValue>() != null);
-            return RawGet(key) ?? DynValue.Nil;
+            var d = RawGet(key);
+            return  d.IsValid ? d : DynValue.Nil;
         }
 
         /// <summary>
@@ -400,9 +405,10 @@ namespace MoonSharp.Interpreter
         /// <param name="keys">The keys to access the table and subtables</param>
         public DynValue Get(params object[] keys)
 		{
-			//Contract.Ensures(Contract.Result<DynValue>() != null);
-			return RawGet(keys) ?? DynValue.Nil;
-		}
+            //Contract.Ensures(Contract.Result<DynValue>() != null);
+            var d = RawGet(keys);
+            return d.IsValid ? d : DynValue.Nil;
+        }
 
 		#endregion
 
@@ -410,7 +416,7 @@ namespace MoonSharp.Interpreter
 
 		private static DynValue RawGetValue(LinkedListNode<TablePair> linkedListNode)
 		{
-			return (linkedListNode != null) ? linkedListNode.Value.Value : null;
+			return (linkedListNode != null) ? linkedListNode.Value.Value : DynValue.Invalid;
 		}
 
 		/// <summary>
@@ -461,7 +467,7 @@ namespace MoonSharp.Interpreter
 		public DynValue RawGet(object key)
 		{
 			if (key == null)
-				return null;
+				return DynValue.Invalid;
 
 			if (key is string)
 				return RawGet((string)key);
@@ -492,7 +498,7 @@ namespace MoonSharp.Interpreter
         public DynValue RawGet(params object[] keys)
 		{
 			if (keys == null || keys.Length <= 0)
-				return null;
+				return DynValue.Invalid;
 
 			object key;
 			return ResolveMultipleKeys(keys, out key).RawGet(key);

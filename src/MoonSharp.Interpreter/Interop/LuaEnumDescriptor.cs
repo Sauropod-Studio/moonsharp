@@ -41,7 +41,7 @@ namespace MoonSharp.Interpreter.Interop
             Array values = Enum.GetValues(Type);
             for (int i = 0; i != values.Length; i++)
             {
-                t[keys[i]] = UserData.Create(new LuaEnumProxy<T>((T)values.GetValue(i)), this);
+                t[keys[i]] = UserData.CreateWithDescriptor(new LuaEnumProxy<T>((T)values.GetValue(i)), this);
             }
             return t;
         }
@@ -66,7 +66,7 @@ namespace MoonSharp.Interpreter.Interop
             {
                 return DynValue.NewString(Enum.GetName(typeof(T), obj.Get<LuaEnumProxy<T>>().value));
             }
-            return null;
+            return DynValue.Invalid;
 		}
 
 		public bool SetIndex(Script script, IUserData obj, DynValue index, DynValue value, bool isDirectIndexing)
@@ -104,7 +104,7 @@ namespace MoonSharp.Interpreter.Interop
                 return __eq;
             }
 
-            return null;
+            return DynValue.Invalid;
         }
 
         public bool IsTypeCompatible(Type type, IUserData obj)
@@ -122,7 +122,7 @@ namespace MoonSharp.Interpreter.Interop
                 DynValue r_lhs = args.RawGet(0, true);
                 DynValue r_rhs = args.RawGet(1, true);
 
-                if (r_lhs == null || r_lhs.IsNil() || r_rhs == null || r_rhs.IsNil()) return DynValue.False;
+                if (r_lhs.IsNil() || r_rhs.IsNil()) return DynValue.False;
 
                 //Make sure lhs is a proper T
                 {

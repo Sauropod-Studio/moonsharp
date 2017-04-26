@@ -56,7 +56,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private string PurifyFromNewLines(DynValue Value)
 		{
-			if (Value == null)
+			if (!Value.IsValid)
 				return "";
 
 			return Value.ToString().Replace('\n', ' ').Replace('\r', ' ');
@@ -153,7 +153,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 		{
 			bool isnull = !rd.ReadBoolean();
 
-			if (isnull) return null;
+			if (isnull) return DynValue.Invalid;
 
 			DataType dt = (DataType)rd.ReadByte();
 
@@ -179,7 +179,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private void DumpValue(BinaryWriter wr, DynValue value)
 		{
-			if (value == null)
+			if (!value.IsValid)
 			{
 				wr.Write(false);
 				return;

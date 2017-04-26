@@ -69,7 +69,9 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return RawGet(index, true) ?? DynValue.Void;
+			    var d = RawGet(index, true);
+
+                return  d.IsValid? d: DynValue.Void;
 			}
 		}
 
@@ -84,7 +86,7 @@ namespace MoonSharp.Interpreter
 			DynValue v;
 
 			if (index >= m_Count)
-				return null;
+				return DynValue.Invalid;
 
 			if (!m_LastIsTuple || index < m_Args.Count - 1)
 				v = m_Args[index];
@@ -243,7 +245,7 @@ namespace MoonSharp.Interpreter
         public string AsStringUsingMeta(ScriptExecutionContext executionContext, int argNum, string funcName)
 		{
 			if ((this[argNum].Type == DataType.Table) && (this[argNum].Table.MetaTable != null) &&
-				(this[argNum].Table.MetaTable.RawGet("__tostring") != null))
+				(this[argNum].Table.MetaTable.RawGet("__tostring").IsValid))
 			{
 				var v = executionContext.GetScript().Call(this[argNum].Table.MetaTable.RawGet("__tostring"), this[argNum]);
 

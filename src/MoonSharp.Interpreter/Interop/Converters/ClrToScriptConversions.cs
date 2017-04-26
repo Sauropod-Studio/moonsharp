@@ -35,7 +35,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (obj is Table)
 				return DynValue.NewTable((Table)obj);
 
-			return null;
+			return DynValue.Invalid;
 		}
 
 		/// <summary>
@@ -54,7 +54,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (converter != null)
 			{
 				var v = converter(script, obj);
-				if (v != null)
+				if (v.IsValid)
 					return v;
 			}
 
@@ -93,7 +93,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 					return DynValue.NewCallback((Func<ScriptExecutionContext, CallbackArguments, DynValue>)d);
 			}
 
-			return null;
+			return DynValue.Invalid;
 		}
 
 
@@ -104,10 +104,12 @@ namespace MoonSharp.Interpreter.Interop.Converters
 		{
 			DynValue v = TryObjectToSimpleDynValue(script, obj);
 
-			if (v != null) return v;
+			if (v.IsValid)
+                return v;
 
 			v = UserData.Create(obj);
-			if (v != null) return v;
+			if (v.IsValid)
+                return v;
 
 			if (obj is Type)
 				v = UserData.CreateStatic(obj as Type);
@@ -116,7 +118,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			if (obj is Enum)
 				return DynValue.NewNumber(NumericConversions.TypeToDouble(Enum.GetUnderlyingType(obj.GetType()), obj));
 
-			if (v != null) return v;
+			if (v.IsValid) return v;
 
 			if (obj is Delegate)
 				return DynValue.NewCallback(CallbackFunction.FromDelegate(script, (Delegate)(object)obj));
@@ -144,7 +146,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 			}
 
 			var enumerator = EnumerationToDynValue(script, obj);
-			if (enumerator != null) return enumerator;
+			if (enumerator.IsValid) return enumerator;
 
 
 			throw ScriptRuntimeException.ConvertObjectFailed(obj);
@@ -162,28 +164,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
             }
             return ObjectToDynValue(script, value);
         }
-
-        /// <summary>
-        /// Tries to convert a CLR object to a value type, using "trivial" logic.
-        /// Skips on custom conversions, etc.
-        /// Does NOT throw on failure.
-        /// </summary>
-        internal static DynValue ValueTypeToDynValue<T>(Script script, T value) where T : struct
-        {
-            Type t = typeof(T);
-
-            if (t == typeof(bool))
-                return DynValue.NewBoolean(ValueConverter<T,bool>.Instance.Convert(value));
-
-            if (NumericConversions.NumericTypes.Contains(t))
-                return DynValue.NewNumber(ValueConverter<T, double>.Instance.Convert(value));
-
-            if (value is Enum)
-                return UserData.Create(new LuaEnumProxy<T>(value));
-
-            return StructToDynValue(script, value);
-        }
-
 
         /// <summary>
         /// Converts an IEnumerable or IEnumerator to a DynValue
@@ -205,7 +185,7 @@ namespace MoonSharp.Interpreter.Interop.Converters
 				return EnumerableWrapper.ConvertIterator(script, enumer);
 			}
 
-			return null;
+			return DynValue.Invalid;
 		}
 
 
@@ -214,13 +194,17 @@ namespace MoonSharp.Interpreter.Interop.Converters
         /// </summary>
         internal static DynValue StructToDynValue<T>(Script script, T obj)
         {
-            DynValue v = ObjectToDynValue(script, obj);
-            if(v == null)
+            var v = UserData.Create(obj);
+            if (v.IsValid)
+                return v;
+            v = ObjectToDynValue(script, obj);
+            if(v.IsValid)
                 throw ScriptRuntimeException.ConvertObjectFailed(obj);
             return v;
         }
 
     }
+
     public sealed class ValueConverter<TIn, TOut>
     {
         public static readonly ValueConverter<TIn, TOut> Instance = new ValueConverter<TIn, TOut>();
@@ -377,24 +361,65 @@ namespace MoonSharp.Interpreter.Interop.Converters
         private ValueTypeBoxer()
         {
             var t = typeof(TIn);
-            var paramExpr = Expression.Parameter(typeof(TIn), "ValueToBeConverted");
-            var nullScript = Expression.Constant(null, typeof(Script));
-            MethodInfo mInfo = null;
-            foreach (MethodInfo mi in typeof(ClrToScriptConversions).GetMethods(BindingFlags.Static | BindingFlags.NonPublic))
-            {
-                if (mi.Name == "ValueTypeToDynValue" && mi.GetParameters().Length == 2)
-                {
-                    mInfo = mi;
-                    break;
-                }
-
-            }
-            Console.WriteLine("bob");
-            Console.WriteLine(mInfo);
-            mInfo = mInfo.MakeGenericMethod(typeof(TIn));
-            var invocation = Expression.Call(mInfo, nullScript, paramExpr);
-            Convert = Expression.Lambda<Func<TIn, DynValue>>(invocation, paramExpr).Compile();
+            if (typeof (DynValue) == t)
+                Convert = DynValueCaster();
+            else if(typeof(bool) == t)
+                Convert = BoolToDynValueConverter();
+            else if (NumericConversions.NumericTypes.Contains(t))
+                Convert = NumberToDynValueConverter();
+            else if (t.IsEnum)
+                Convert = EnumToDynValueTypeConverter();
+            else
+                Convert = GenericValueTypeConverter();
         }
 
+        private static Func<TIn, DynValue> DynValueCaster()
+        {
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(t, "ValueToBeConverted");
+            return Expression.Lambda<Func<TIn, DynValue>>(paramExpr, paramExpr).Compile();
+        }
+
+        private static Func<TIn, DynValue> BoolToDynValueConverter()
+        {
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(t, "ValueToBeConverted");
+            MethodInfo mInfo = typeof(DynValue).GetMethod("NewBoolean", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            var invocation = Expression.Call(mInfo, paramExpr);
+            return Expression.Lambda<Func<TIn, DynValue>>(invocation, paramExpr).Compile();
+        }
+
+        private static Func<TIn, DynValue> NumberToDynValueConverter()
+        {
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(t, "ValueToBeConverted");
+            var c = Expression.ConvertChecked(paramExpr, typeof(double));
+            MethodInfo mInfo = typeof(DynValue).GetMethod("NewNumber", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            var invocation = Expression.Call(mInfo, c);
+            return Expression.Lambda<Func<TIn, DynValue>>(invocation, paramExpr).Compile();
+        }
+
+        private static Func<TIn, DynValue> EnumToDynValueTypeConverter()
+        {
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(t, "ValueToBeConverted");
+            var tLuaBoxer = typeof (LuaEnumProxy<>).MakeGenericType(t);
+            ConstructorInfo cInfo = tLuaBoxer.GetConstructor(new Type[] { typeof(TIn) });
+            MethodInfo mInfo = typeof(UserData).GetMethod("Create", BindingFlags.Static | BindingFlags.Public).MakeGenericMethod(tLuaBoxer);
+            var newLuaEnumProxy = Expression.New(cInfo, paramExpr);
+            var invocation = Expression.Call(mInfo, newLuaEnumProxy);
+            return Expression.Lambda<Func<TIn, DynValue>>(invocation, paramExpr).Compile();
+        }
+
+        private static Func<TIn, DynValue> GenericValueTypeConverter()
+        {
+            var t = typeof(TIn);
+            var paramExpr = Expression.Parameter(t, "ValueToBeConverted");
+            var nullScript = Expression.Constant(null, typeof(Script));
+            MethodInfo mInfo = typeof(ClrToScriptConversions).GetMethod("StructToDynValue", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            mInfo = mInfo.MakeGenericMethod(t);
+            var invocation = Expression.Call(mInfo, nullScript, paramExpr);
+            return Expression.Lambda<Func<TIn, DynValue>>(invocation, paramExpr).Compile();
+        }
     }
 }

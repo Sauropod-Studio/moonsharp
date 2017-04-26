@@ -60,7 +60,7 @@ namespace MoonSharp.Interpreter.Interop
 			{
 				string name = names[i];
 				object value = values.GetValue(i);
-				DynValue cvalue = UserData.Create(value, this);
+				DynValue cvalue = UserData.CreateWithDescriptor(value, this);
 
 				base.AddDynValue(name, cvalue);
 			}
@@ -143,7 +143,7 @@ namespace MoonSharp.Interpreter.Interop
         private DynValue CreateValueSigned(long value)
 		{
 			CreateSignedConversionFunctions();
-			return UserData.Create(m_LongToEnum(value), this);
+			return UserData.CreateWithDescriptor(m_LongToEnum(value), this);
 		}
 
 		/// <summary>
@@ -152,7 +152,7 @@ namespace MoonSharp.Interpreter.Interop
 		private DynValue CreateValueUnsigned(ulong value)
 		{
 			CreateUnsignedConversionFunctions();
-			return UserData.Create(m_ULongToEnum(value), this);
+			return UserData.CreateWithDescriptor(m_ULongToEnum(value), this);
 		}
 
 		/// <summary>
@@ -343,7 +343,7 @@ namespace MoonSharp.Interpreter.Interop
 			if (metaname == "__concat" && IsFlags)
 				return DynValue.NewCallback(Callback_Or);
 
-			return null;
+			return DynValue.Invalid;
 		}
 	}
 }

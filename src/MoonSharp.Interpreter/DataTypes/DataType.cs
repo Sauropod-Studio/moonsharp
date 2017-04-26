@@ -7,12 +7,11 @@ namespace MoonSharp.Interpreter
 	/// </summary>
 	public enum DataType
 	{
-		// DO NOT MODIFY ORDER - IT'S SIGNIFICANT
-
-		/// <summary>
-		/// A nil value, as in Lua
-		/// </summary>
-		Nil,
+        // DO NOT MODIFY ORDER - IT'S SIGNIFICANT
+        /// <summary>
+        /// A nil value, as in Lua
+        /// </summary>
+        Nil,
 		/// <summary>
 		/// A place holder for no value
 		/// </summary>
@@ -64,12 +63,16 @@ namespace MoonSharp.Interpreter
 		/// A request to coroutine.yield
 		/// </summary>
 		YieldRequest,
-	}
+        /// <summary>
+        /// This is marked as a default(DataType)
+        /// </summary>
+        Invalid = -1,
+    }
 
-	/// <summary>
-	/// Extension methods to DataType
-	/// </summary>
-	public static class LuaTypeExtensions
+    /// <summary>
+    /// Extension methods to DataType
+    /// </summary>
+    public static class LuaTypeExtensions
 	{
 		internal const DataType MaxMetaTypes = DataType.Table;
 		internal const DataType MaxConvertibleTypes = DataType.ClrFunction;

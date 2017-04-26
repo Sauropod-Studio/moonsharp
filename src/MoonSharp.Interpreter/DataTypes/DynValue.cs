@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using MoonSharp.Interpreter.Interop.Converters;
-using System.Threading;
 
 namespace MoonSharp.Interpreter
 {
@@ -13,28 +12,28 @@ namespace MoonSharp.Interpreter
     /// <summary>
     /// A class representing a value in a Lua/MoonSharp script.
     /// </summary>
-    public class DynValue
-	{
-        public static int INSTANCE_AMOUNT;
-        public const int MAX_POOL_SIZE = 100000;
-
+//    [StructLayout(LayoutKind.Explicit)]
+    public struct DynValue : IEquatable<DynValue>
+    {
+        public static DynValue Invalid = default(DynValue);
         private static int s_RefIDCounter = 0;
-        private static Stack<DynValue> _pool = new Stack<DynValue>(MAX_POOL_SIZE);
+
+//        [FieldOffset(0)]
+        private double m_Number;
+//        [FieldOffset(0)]
+        private object m_Object;
+//        [FieldOffset(8)]
+        public int m_RefID;
+//        [FieldOffset(12)]
+//        [MarshalAs(UnmanagedType.I1)]
+        private DataType m_Type;
 
 
-		private int m_RefID = Interlocked.Increment(ref s_RefIDCounter);
-		private int m_HashCode = -1;
 
-		private bool m_ReadOnly;
-		private double m_Number;
-		private object m_Object;
-		private DataType m_Type;
-
-
-		/// <summary>
-		/// Gets a unique reference identifier. This is guaranteed to be unique only for dynvalues created in a single thread as it's not thread-safe.
-		/// </summary>
-		public int ReferenceID { get { return m_RefID; } }
+        /// <summary>
+        /// Gets a unique reference identifier. This is guaranteed to be unique only for dynvalues created in a single thread as it's not thread-safe.
+        /// </summary>
+        public int ReferenceID { get { return m_RefID; } }
 
 		/// <summary>
 		/// Gets the type of the value.
@@ -86,52 +85,25 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public IUserData UserData { get { return m_Object as IUserData; } }
 
-		/// <summary>
-		/// Returns true if this instance is write protected.
-		/// </summary>
-		public bool ReadOnly { get { return m_ReadOnly; } }
+        /// <summary>
+        /// Returns true if this instance is write protected.
+        /// </summary>
+        public bool IsValid { get { return m_RefID != 0; } }
 
-	    internal static DynValue Request()
+        internal static DynValue Request()
 	    {
-	        DynValue d;
-            lock (_pool)
-            {
-                if (_pool.Count > 0)
-	            {
-                     d = _pool.Pop();
-                    GC.ReRegisterForFinalize(d);
-	            }
-                else
-                { 
-                    d = new DynValue();
-                    INSTANCE_AMOUNT++;
-                }
-            }
+            var d = new DynValue();
+            d.m_Type = DataType.Invalid;
+            d.m_RefID = System.Threading.Interlocked.Increment(ref s_RefIDCounter);
             return d;
 	    }
-
-	    ~DynValue()
-	    {
-		    m_HashCode = -1;
-            m_ReadOnly = false;
-		    m_Number = 0;
-            //if (m_Type == DataType.Tuple)
-            //    DynValueArray.Release(m_Object as DynValue[]);
-            m_Type = 0;
-            m_Object = null;
-            lock (_pool)
-            {
-                if (_pool.Count < MAX_POOL_SIZE)
-                    _pool.Push(this);
-            }
-        }
 
         /// <summary>
         /// Creates a new writable value initialized to Nil.
         /// </summary>
         public static DynValue NewNil()
 		{
-			return Request();
+			return Nil;
 		}
 
 		/// <summary>
@@ -153,7 +125,6 @@ namespace MoonSharp.Interpreter
             var d = Request();
             d.m_Number = num;
             d.m_Type = DataType.Number;
-		    d.m_HashCode = -1;
             return d;
 		}
 
@@ -454,54 +425,6 @@ namespace MoonSharp.Interpreter
 		}
 
 		/// <summary>
-		/// Returns this value as readonly - eventually cloning it in the process if it isn't readonly to start with.
-		/// </summary>
-		public DynValue AsReadOnly()
-		{
-			if (ReadOnly)
-				return this;
-			else
-			{
-				return Clone(true);
-			}
-		}
-
-		/// <summary>
-		/// Clones this instance.
-		/// </summary>
-		/// <returns></returns>
-		public DynValue Clone()
-		{
-			return Clone(this.ReadOnly);
-		}
-
-		/// <summary>
-		/// Clones this instance, overriding the "readonly" status.
-		/// </summary>
-		/// <param name="readOnly">if set to <c>true</c> the new instance is set as readonly, or writeable otherwise.</param>
-		/// <returns></returns>
-		public DynValue Clone(bool readOnly)
-		{
-			DynValue v = Request();
-			v.m_Object = this.m_Object;
-			v.m_Number = this.m_Number;
-			v.m_HashCode = this.m_HashCode;
-			v.m_Type = this.m_Type;
-			v.m_ReadOnly = readOnly;
-			return v;
-		}
-
-		/// <summary>
-		/// Clones this instance, returning a writable copy.
-		/// </summary>
-		/// <exception cref="System.ArgumentException">Can't clone Symbol values</exception>
-		public DynValue CloneAsWritable()
-		{
-			return Clone(false);
-		}
-
-
-		/// <summary>
 		/// A preinitialized, readonly instance, equaling Void
 		/// </summary>
 		public static DynValue Void { get; private set; }
@@ -521,31 +444,15 @@ namespace MoonSharp.Interpreter
 
 		static DynValue()
 		{
-            Nil = Request();
-		    Nil.m_Type = DataType.Nil;
-            Nil = Nil.AsReadOnly();
+            var nil = Request();
+            nil.m_Type = DataType.Nil;
+            Nil = nil;
 
-            Void = Request();
-            Void.m_Type = DataType.Void;
-            Void = Void.AsReadOnly();
-			True = NewBoolean(true).AsReadOnly();
-			False = NewBoolean(false).AsReadOnly();
-
-            new System.Threading.Thread(() => WarnDynValueCache()).Start();
-        }
-
-        private static void WarnDynValueCache()
-	    {
-            INSTANCE_AMOUNT = MAX_POOL_SIZE;
-            for (int i = MAX_POOL_SIZE; i > 0; i--)
-            {
-                var d = new DynValue();
-                GC.SuppressFinalize(d);
-                lock (_pool)
-                {
-                    _pool.Push(d);
-                }
-            }
+            var voidd = Request();
+            voidd.m_Type = DataType.Void;
+            Void = voidd;
+			True = NewBoolean(true);
+			False = NewBoolean(false);
         }
 
 
@@ -656,7 +563,7 @@ namespace MoonSharp.Interpreter
 				case DataType.Thread:
 					return string.Format("(Coroutine {0:X8})", this.Coroutine.ReferenceID);
 				default:
-					return "(???)";
+					return "(null)";
 			}
 		}
 
@@ -668,12 +575,11 @@ namespace MoonSharp.Interpreter
 		/// </returns>
 		public override int GetHashCode()
 		{
-			if (m_HashCode != -1)
-				return m_HashCode;
-
 			int baseValue = ((int)(Type)) << 27;
 
-			switch (Type)
+		    int m_HashCode;
+
+            switch (Type)
 			{
 				case DataType.Void:
 				case DataType.Nil:
@@ -711,71 +617,74 @@ namespace MoonSharp.Interpreter
 			return m_HashCode;
 		}
 
-		/// <summary>
-		/// Determines whether the specified <see cref="System.Object" />, is equal to this instance.
-		/// </summary>
-		/// <param name="obj">The <see cref="System.Object" /> to compare with this instance.</param>
-		/// <returns>
-		///   <c>true</c> if the specified <see cref="System.Object" /> is equal to this instance; otherwise, <c>false</c>.
-		/// </returns>
-		public override bool Equals(object obj)
-		{
-			DynValue other = obj as DynValue;
 
-			if (other == null) return false;
+        public bool Equals(DynValue other)
+        {
+            if ((other.Type == DataType.Nil && this.Type == DataType.Void)
+                || (other.Type == DataType.Void && this.Type == DataType.Nil))
+                return true;
 
-			if ((other.Type == DataType.Nil && this.Type == DataType.Void)
-				|| (other.Type == DataType.Void && this.Type == DataType.Nil))
-				return true;
+            if (other.Type != this.Type) return false;
 
-			if (other.Type != this.Type) return false;
+            switch (Type)
+            {
+                case DataType.Void:
+                case DataType.Nil:
+                    return true;
+                case DataType.Boolean:
+                    return Boolean == other.Boolean;
+                case DataType.Number:
+                    return Number == other.Number;
+                case DataType.String:
+                    return String == other.String;
+                case DataType.Function:
+                    return Function == other.Function;
+                case DataType.ClrFunction:
+                    return Callback == other.Callback;
+                case DataType.Table:
+                    return Table == other.Table;
+                case DataType.Tuple:
+                case DataType.TailCallRequest:
+                    return Tuple == other.Tuple;
+                case DataType.Thread:
+                    return Coroutine == other.Coroutine;
+                case DataType.UserData:
+                    {
+                        IUserData ud1 = this.UserData;
+                        IUserData ud2 = other.UserData;
 
+                        if (ud1 == null || ud2 == null)
+                            return false;
 
-			switch (Type)
-			{
-				case DataType.Void:
-				case DataType.Nil:
-					return true;
-				case DataType.Boolean:
-					return Boolean == other.Boolean;
-				case DataType.Number:
-					return Number == other.Number;
-				case DataType.String:
-					return String == other.String;
-				case DataType.Function:
-					return Function == other.Function;
-				case DataType.ClrFunction:
-					return Callback == other.Callback;
-				case DataType.Table:
-					return Table == other.Table;
-				case DataType.Tuple:
-				case DataType.TailCallRequest:
-					return Tuple == other.Tuple;
-				case DataType.Thread:
-					return Coroutine == other.Coroutine;
-				case DataType.UserData:
-					{
-						IUserData ud1 = this.UserData;
-						IUserData ud2 = other.UserData;
+                        if (ud1.Descriptor != ud2.Descriptor)
+                            return false;
 
-						if (ud1 == null || ud2 == null)
-							return false;
+                        if (!ud1.HasValue() && !ud1.HasValue())
+                            return true;
 
-						if (ud1.Descriptor != ud2.Descriptor)
-							return false;
+                        if (ud1.HasValue() && ud1.HasValue())
+                            return ud1.Equals(ud2);
 
-						if (!ud1.HasValue() && !ud1.HasValue())
-							return true;
+                        return false;
+                    }
+                default:
+                    return false;
+            }
+        }
 
-						if (ud1.HasValue() && ud1.HasValue())
-							return ud1.Equals(ud2);
-
-						return false;
-					}
-				default:
-					return object.ReferenceEquals(this, other);
-			}
-		}
+        /// <summary>
+        /// Determines whether the specified <see cref="System.Object" />, is equal to this instance.
+        /// </summary>
+        /// <param name="obj">The <see cref="System.Object" /> to compare with this instance.</param>
+        /// <returns>
+        ///   <c>true</c> if the specified <see cref="System.Object" /> is equal to this instance; otherwise, <c>false</c>.
+        /// </returns>
+        public override bool Equals(object other)
+        {
+            if (other is DynValue)
+                return Equals((DynValue)other);
+            return false;
+        }
 
 
 		/// <summary>
@@ -857,22 +766,6 @@ namespace MoonSharp.Interpreter
 			return Tuple[0].ToScalar();
 		}
 
-		/// <summary>
-		/// Performs an assignment, overwriting the value with the specified one.
-		/// </summary>
-		/// <param name="value">The value.</param>
-		/// <exception cref="ScriptRuntimeException">If the value is readonly.</exception>
-		public void Assign(DynValue value)
-		{
-			if (this.ReadOnly)
-				throw new ScriptRuntimeException("Assigning on r-value");
-
-			this.m_Number = value.m_Number;
-			this.m_Object = value.m_Object;
-			this.m_Type = value.Type;
-			this.m_HashCode = -1;
-		}
-
         /// <summary>
         /// Gets the length of a string or table value.
         /// </summary>
@@ -893,7 +786,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool IsNil()
 		{
-			return this.Type == DataType.Nil || this.Type == DataType.Void;
+			return this.Type == DataType.Invalid || this.Type == DataType.Nil || this.Type == DataType.Void;
 		}
 
 		/// <summary>
@@ -901,7 +794,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool IsNotNil()
 		{
-			return this.Type != DataType.Nil && this.Type != DataType.Void;
+			return this.Type != DataType.Invalid && this.Type != DataType.Nil && this.Type != DataType.Void;
 		}
 
 		/// <summary>
@@ -925,21 +818,7 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public bool IsNilOrNan()
 		{
-			return (this.Type == DataType.Nil) || (this.Type == DataType.Void) || (this.Type == DataType.Number && double.IsNaN(this.Number));
-		}
-
-		/// <summary>
-		/// Changes the numeric value of a number DynValue.
-		/// </summary>
-		internal void AssignNumber(double num)
-		{
-			if (this.ReadOnly)
-				throw new InternalErrorException(null, "Writing on r-value");
-
-			if (this.Type != DataType.Number)
-				throw new InternalErrorException("Can't assign number to type {0}", this.Type);
-
-			this.m_Number = num;
+			return (Type == DataType.Invalid) || (this.Type == DataType.Nil) || (this.Type == DataType.Void) || (this.Type == DataType.Number && double.IsNaN(this.Number));
 		}
 
         /// <summary>
@@ -951,7 +830,6 @@ namespace MoonSharp.Interpreter
         public static DynValue FromObject<T>(Script script, T value, bool readOnly = false)
         {
             DynValue dynValue = ClrToScriptConversions.GenericToDynValue<T>(script, value);
-            dynValue.m_ReadOnly = readOnly;
             return dynValue;
         }
 
@@ -1048,8 +926,7 @@ namespace MoonSharp.Interpreter
 
 			throw ScriptRuntimeException.BadArgumentUserData(argNum, funcName, typeof(T), t, allowNil);
 		}
-
-	}
+    }
 
     public static class DynValueArray
     {
@@ -1064,7 +941,6 @@ namespace MoonSharp.Interpreter
 
         public static DynValue[] Request(int i)
         {
-            Stack<DynValue[]> pool;
             DynValue[] array;
             switch (i)
             {

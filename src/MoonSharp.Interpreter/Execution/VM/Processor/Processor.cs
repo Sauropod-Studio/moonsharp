@@ -80,7 +80,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			}
 		}
 
-        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = null)
+        public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = default(DynValue))
         {
             List<Processor> coroutinesStack = m_Parent != null ? m_Parent.m_CoroutinesStack : this.m_CoroutinesStack;
 
@@ -118,7 +118,7 @@ namespace MoonSharp.Interpreter.Execution.VM
         // at vstack top.
         private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, IList<DynValue> args)
         {
-            if (function == null)
+            if (!function.IsValid)
                 function = m_ValueStack.Peek();
             else
                 m_ValueStack.Push(function);  // func val
@@ -143,19 +143,19 @@ namespace MoonSharp.Interpreter.Execution.VM
             return function.Function.EntryPointByteCodeLocation;
         }
 
-        private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = null)
+        private int PushClrToScriptStackFrame(CallStackItemFlags flags, DynValue function, DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4, DynValue metafunction = default(DynValue))
         {
-            if (function == null)
+            if (!function.IsValid)
                 function = m_ValueStack.Peek();
             else
                 m_ValueStack.Push(function);  // func val
 
             int pushed = 0;
-            if (metafunction != null) { m_ValueStack.Push(metafunction); pushed++; }
-            if (arg1 != null) { m_ValueStack.Push(arg1); pushed++; }
-            if (arg2 != null) { m_ValueStack.Push(arg2); pushed++; }
-            if (arg3 != null) { m_ValueStack.Push(arg3); pushed++; }
-            if (arg4 != null) { m_ValueStack.Push(arg4); pushed++; }
+            if (metafunction.IsValid) { m_ValueStack.Push(metafunction); pushed++; }
+            if (arg1.IsValid) { m_ValueStack.Push(arg1); pushed++; }
+            if (arg2.IsValid) { m_ValueStack.Push(arg2); pushed++; }
+            if (arg3.IsValid) { m_ValueStack.Push(arg3); pushed++; }
+            if (arg4.IsValid) { m_ValueStack.Push(arg4); pushed++; }
 
             m_ValueStack.Push(DynValue.NewNumber(pushed));  // func args count
 

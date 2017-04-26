@@ -479,21 +479,6 @@ namespace MoonSharp.Interpreter
 			return DynValue.NewClosure(c);
 		}
 
-		/// <summary>
-		/// Calls the specified function.
-		/// </summary>
-		/// <param name="function">The Lua/MoonSharp function to be called</param>
-		/// <param name="args">The arguments to pass to the function.</param>
-		/// <returns>
-		/// The return value(s) of the function call.
-		/// </returns>
-		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
-		public DynValue Call(DynValue function, params DynValue[] args)
-		{
-            return Call(function, args);
-
-        }
-
         /// <summary>
         /// Calls the specified function.
         /// </summary>
@@ -555,7 +540,7 @@ namespace MoonSharp.Interpreter
             {
                 DynValue metafunction = m_MainProcessor.GetMetamethod(function, "__call");
 
-                if (metafunction != null)
+                if (metafunction.IsValid)
                 {
                     DynValue[] metaargs = new DynValue[args.Count + 1];
                     metaargs[0] = function;
@@ -588,7 +573,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue function)
         {
-            return Call(function, null, null, null, null);
+            return Call(function, DynValue.Invalid, DynValue.Invalid, DynValue.Invalid, DynValue.Invalid);
         }
 
         /// <summary>
@@ -601,7 +586,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue function, DynValue arg1)
         {
-            return Call(function, arg1, null, null, null);
+            return Call(function, arg1, DynValue.Invalid, DynValue.Invalid, DynValue.Invalid);
         }
 
         /// <summary>
@@ -614,7 +599,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue function, DynValue arg1, DynValue arg2)
         {
-            return Call(function, arg1, arg2, null, null);
+            return Call(function, arg1, arg2, DynValue.Invalid, DynValue.Invalid);
         }
 
         /// <summary>
@@ -627,7 +612,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue function, DynValue arg1, DynValue arg2, DynValue arg3)
         {
-            return Call(function, arg1, arg2, arg3, null);
+            return Call(function, arg1, arg2, arg3, DynValue.Invalid);
         }
 
         /// <summary>
@@ -644,12 +629,12 @@ namespace MoonSharp.Interpreter
             //this.CheckScriptOwnership(function);
             //this.CheckScriptOwnership(args);
 
-            DynValue arg5 = null;
+            DynValue arg5 = DynValue.Invalid;
             if (function.Type != DataType.Function && function.Type != DataType.ClrFunction)
             {
                 DynValue metafunction = m_MainProcessor.GetMetamethod(function, "__call");
 
-                if (metafunction != null)
+                if (metafunction.IsValid)
                 {
                     arg5 = function;
                     function = metafunction;
@@ -662,10 +647,10 @@ namespace MoonSharp.Interpreter
             else if (function.Type == DataType.ClrFunction)
             {
                 DynValue[] array;
-                if (arg1 == null) array = _emptyDynList;
-                else if (arg2 == null) array = new DynValue[] { arg1 };
-                else if (arg3 == null) array = new DynValue[] { arg1, arg2 };
-                else if (arg4 == null) array = new DynValue[] { arg1, arg2, arg3 };
+                if (!arg1.IsValid) array = _emptyDynList;
+                else if (!arg2.IsValid) array = new DynValue[] { arg1 };
+                else if (!arg3.IsValid) array = new DynValue[] { arg1, arg2 };
+                else if (!arg4.IsValid) array = new DynValue[] { arg1, arg2, arg3 };
                 else array = new DynValue[] { arg1, arg2, arg3, arg4 };
 
                 return function.Callback.ClrCallback(this.CreateDynamicExecutionContext(function.Callback), new CallbackArguments(array, false));

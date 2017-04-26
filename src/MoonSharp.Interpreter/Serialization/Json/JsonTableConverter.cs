@@ -216,7 +216,7 @@ namespace MoonSharp.Interpreter.Serialization.Json
 			}
 			else if (L.Current.Type == TokenType.Number)
 			{
-				return DynValue.NewNumber(L.Current.GetNumberValue()).AsReadOnly();
+				return DynValue.NewNumber(L.Current.GetNumberValue());
 			}
 			else if (L.Current.Type == TokenType.True)
 			{

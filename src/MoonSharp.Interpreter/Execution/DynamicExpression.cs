@@ -43,7 +43,7 @@ namespace MoonSharp.Interpreter
 		{
 			this.CheckScriptOwnership(context.GetScript());
 
-			if (m_Constant != null)
+			if (m_Constant.IsValid)
 				return m_Constant;
 
 			return m_Exp.Eval(context);
@@ -82,7 +82,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public bool IsConstant()
 		{
-			return m_Constant != null;
+			return m_Constant.IsValid;
 		}
 
 		/// <summary>

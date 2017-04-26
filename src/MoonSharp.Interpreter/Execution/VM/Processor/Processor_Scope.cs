@@ -52,7 +52,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			if (dynValue.Type != DataType.Table)
 				throw new InvalidOperationException(string.Format("_ENV is not a table but a {0}", dynValue.Type));
 
-			dynValue.Table.Set(name, value ?? DynValue.Nil);
+			dynValue.Table.Set(name, value.IsValid ? value : DynValue.Nil);
 		}
 
 
@@ -68,11 +68,8 @@ namespace MoonSharp.Interpreter.Execution.VM
 						CallStackItem stackframe;
                         GetTopNonClrFunction(out stackframe);
 
-						DynValue v = stackframe.LocalScope[symref.i_Index];
-						if (v == null)
-							stackframe.LocalScope[symref.i_Index] = v = DynValue.NewNil();
-
-						v.Assign(value);
+						if (!stackframe.LocalScope[symref.i_Index].IsValid)
+							stackframe.LocalScope[symref.i_Index] = value;
 					}
 					break;
 				case SymbolRefType.Upvalue:
@@ -80,11 +77,8 @@ namespace MoonSharp.Interpreter.Execution.VM
                         CallStackItem stackframe;
                         GetTopNonClrFunction(out stackframe);
 
-                        DynValue v = stackframe.ClosureScope[symref.i_Index];
-						if (v == null)
-							stackframe.ClosureScope[symref.i_Index] = v = DynValue.NewNil();
-
-						v.Assign(value);
+                        if (!stackframe.LocalScope[symref.i_Index].IsValid)
+                            stackframe.LocalScope[symref.i_Index] = value;
 					}
 					break;
 				case SymbolRefType.DefaultEnv:
@@ -126,7 +120,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 						{
 							var l = stackframe.Debug_Symbols[i];
 
-							if (l.i_Name == name && stackframe.LocalScope[i] != null)
+							if (l.i_Name == name && stackframe.LocalScope[i].IsValid)
 								return l;
 						}
 					}

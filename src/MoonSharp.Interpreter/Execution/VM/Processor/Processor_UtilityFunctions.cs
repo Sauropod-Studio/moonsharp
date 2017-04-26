@@ -48,26 +48,26 @@ namespace MoonSharp.Interpreter.Execution.VM
 
         private int Internal_InvokeUnaryMetaMethod(DynValue op1, string eventName, int instructionPtr)
 		{
-			DynValue m = null;
+			DynValue m = DynValue.Invalid;
 
 			if (op1.Type == DataType.UserData)
 			{
 				m = op1.UserData.Descriptor.MetaIndex(m_Script, op1.UserData, eventName);
 			}
 
-			if (m == null)
+			if (!m.IsValid)
 			{
 				var op1_MetaTable = GetMetatable(op1);
 
 				if (op1_MetaTable != null)
 				{
 					DynValue meta1 = op1_MetaTable.RawGet(eventName);
-					if (meta1 != null && meta1.IsNotNil())
+					if (meta1.IsValid && meta1.IsNotNil())
 						m = meta1;
 				}
 			}
 
-			if (m != null)
+			if (m.IsValid)
 			{
 				m_ValueStack.Push(m);
 				m_ValueStack.Push(op1);
@@ -78,30 +78,24 @@ namespace MoonSharp.Interpreter.Execution.VM
 				return -1;
 			}
 		}
-		private int Internal_InvokeBinaryMetaMethod(DynValue l, DynValue r, string eventName, int instructionPtr, DynValue extraPush = null)
+		private int Internal_InvokeBinaryMetaMethod(DynValue l, DynValue r, string eventName, int instructionPtr, DynValue extraPush = default(DynValue))
 		{
-			var m = GetBinaryMetamethod(l, r, eventName);
+		    var m = GetBinaryMetamethod(l, r, eventName);
 
-			if (m != null)
-			{
-				if (extraPush != null)
-					m_ValueStack.Push(extraPush);
+		    if (!m.IsValid)
+		        return -1;
 
-				m_ValueStack.Push(m);
-				m_ValueStack.Push(l);
-				m_ValueStack.Push(r);
-				return Internal_ExecCall(2, instructionPtr);
-			}
-			else
-			{
-				return -1;
-			}
+		    if (extraPush.IsValid)
+		        m_ValueStack.Push(extraPush);
+
+		    m_ValueStack.Push(m);
+		    m_ValueStack.Push(l);
+		    m_ValueStack.Push(r);
+		    return Internal_ExecCall(2, instructionPtr);
 		}
 
 
-
-
-		private DynValue[] StackTopToArray(int items, bool pop)
+	    private DynValue[] StackTopToArray(int items, bool pop)
 		{
 			DynValue[] values = new DynValue[items];
 

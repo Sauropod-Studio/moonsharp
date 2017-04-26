@@ -54,7 +54,7 @@ namespace MoonSharp.Interpreter
 			if (u != null)
 				return u.Index(script, index, isDirectIndexing);
 
-			return null;
+			return DynValue.Invalid;
 		}
 
 		/// <summary>
@@ -107,7 +107,7 @@ namespace MoonSharp.Interpreter
 			if (u != null)
 				return u.MetaIndex(script, metaname);
 
-			return null;
+			return DynValue.Invalid;
 		}
 
 

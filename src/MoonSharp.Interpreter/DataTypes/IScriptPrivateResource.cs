@@ -28,7 +28,7 @@ namespace MoonSharp.Interpreter
 
 		public static void CheckScriptOwnership(this IScriptPrivateResource containingResource, DynValue value)
 		{
-			if (value != null)
+			if (value.IsValid)
 			{
 				var otherResource = value.GetAsPrivateResource();
 

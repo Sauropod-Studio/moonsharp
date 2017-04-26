@@ -180,7 +180,7 @@ namespace MoonSharp.Interpreter.Interop
 					{
 						DynValue arg = args.RawGet(j, false);
 						j += 1;
-						if (arg != null)
+						if (arg.IsValid)
 							extraArgs.Add(arg);
 						else
 							break;
@@ -220,7 +220,9 @@ namespace MoonSharp.Interpreter.Interop
 				// else, convert it
 				else
 				{
-					var arg = args.RawGet(j, false) ?? DynValue.Void;
+				    var arg = args.RawGet(j, false);
+					if(!arg.IsValid)
+                        arg = DynValue.Void;
 					pars[i] = ScriptToClrConversions.DynValueToTypedValue<object>(arg, parameters[i].DefaultValue, parameters[i].HasDefaultValue);
 					j += 1;
 				}

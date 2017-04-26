@@ -55,7 +55,7 @@ namespace MoonSharp.Interpreter
 
         ~UserDataStruct()
         {
-            UserValue = null;
+            UserValue = DynValue.Invalid;
             t = default(T);
             Descriptor = null;
             if (_pool.Count < MAX_POOL_SIZE)
@@ -153,7 +153,7 @@ namespace MoonSharp.Interpreter
 
         ~UserDataRef()
         {
-            UserValue = null;
+            UserValue = DynValue.Invalid;
             _object = null;
             Descriptor = null;
             lock (_pool)
@@ -394,7 +394,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="o">The object</param>
 		/// <param name="descr">The descriptor.</param>
 		/// <returns></returns>
-		public static DynValue Create<T>(T o, IUserDataDescriptor descr)
+		public static DynValue CreateWithDescriptor<T>(T o, IUserDataDescriptor descr)
 		{
 		    IUserData userData;
 
@@ -424,10 +424,10 @@ namespace MoonSharp.Interpreter
 			{
                 if (o is Type)
 					return CreateStatic(ValueConverter<T, Type>.Instance.Convert(o));
-				return null;
+				return DynValue.Invalid;
 			}
 
-			return Create(o, descr);
+			return CreateWithDescriptor(o, descr);
 		}
 
 		/// <summary>
@@ -438,7 +438,7 @@ namespace MoonSharp.Interpreter
 		public static DynValue CreateStatic(IUserDataDescriptor descr)
 		{
 		    if (descr == null)
-                return null;
+                return DynValue.Invalid;
 
 		    var userData = UserDataRef.Request();
 		    userData.Descriptor = descr;
