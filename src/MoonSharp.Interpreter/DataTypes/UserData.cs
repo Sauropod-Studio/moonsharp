@@ -77,7 +77,7 @@ namespace MoonSharp.Interpreter
 
         public string AsString() { return Descriptor.AsString(this); }
 
-        public bool Is(Type type) { return t.GetType().IsAssignableFrom(type); }
+        public bool Is(Type type) { return typeof(T).IsAssignableFrom(type); }
 
         public bool Is<TYPE>() { return t is TYPE; }
 
@@ -89,7 +89,7 @@ namespace MoonSharp.Interpreter
         public bool TryGet<TParam>(out TParam param)
         {
             bool success = false;
-            if (this.t is TParam)
+            if (typeof(T) == typeof(TParam))
             {
                 param = ValueConverter<T, TParam>.Instance.Convert(t);
                 success = true;
@@ -104,7 +104,7 @@ namespace MoonSharp.Interpreter
         public bool TrySet<TParam>(TParam param)
         {
             bool success = false;
-            if (param is T)
+            if (typeof(TParam) == typeof(T))
             {
                 t = ValueConverter<TParam, T>.Instance.Convert(param);
                 success = true;
@@ -548,7 +548,7 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		public static IUserDataDescriptor GetDescriptorForObject<T>(T t)
 		{
-			return TypeDescriptorRegistry.GetDescriptorForType(t.GetType(), true);
+			return TypeDescriptorRegistry.GetDescriptorForType(typeof(T).IsValueType ? typeof(T) : t.GetType(), true);
 		}
 
 

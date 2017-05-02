@@ -87,6 +87,7 @@ namespace MoonSharp.Interpreter.Execution.VM
         public void Release()
         {
             HeapAllocatedDynValue.DecreaseReferenceCount(_indices);
+            PooledArray<int>.Release(_indices);
         }
 
         public bool IsEmpty()

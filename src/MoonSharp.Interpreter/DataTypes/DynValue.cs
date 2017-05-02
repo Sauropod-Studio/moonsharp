@@ -1074,7 +1074,7 @@ namespace MoonSharp.Interpreter
                 case 1:
                     lock (_oneSized)
                     {
-                        if (_oneSized.Count < PoolSize)
+                        if (_oneSized.Count >= PoolSize)
                             return;
                         _oneSized.Push(values);
                     }
@@ -1082,7 +1082,7 @@ namespace MoonSharp.Interpreter
                 case 2:
                     lock (_twoSized)
                     {
-                        if (_twoSized.Count < PoolSize)
+                        if (_twoSized.Count >= PoolSize)
                             return;
                         _twoSized.Push(values);
                     }
@@ -1090,7 +1090,7 @@ namespace MoonSharp.Interpreter
                 case 3:
                     lock (_threeSized)
                     {
-                        if (_threeSized.Count < PoolSize)
+                        if (_threeSized.Count >= PoolSize)
                             return;
                         _threeSized.Push(values);
                     }
@@ -1098,7 +1098,7 @@ namespace MoonSharp.Interpreter
                 case 4:
                     lock (_fourSized)
                     {
-                        if (_fourSized.Count < PoolSize)
+                        if (_fourSized.Count >= PoolSize)
                             return;
                         _fourSized.Push(values);
                     }
@@ -1106,7 +1106,7 @@ namespace MoonSharp.Interpreter
                 case 5:
                     lock (_fiveSized)
                     {
-                        if (_fiveSized.Count < PoolSize)
+                        if (_fiveSized.Count >= PoolSize)
                             return;
                         _fiveSized.Push(values);
                     }
@@ -1114,7 +1114,7 @@ namespace MoonSharp.Interpreter
                 case 6:
                     lock (_sixSized)
                     {
-                        if (_sixSized.Count < PoolSize)
+                        if (_sixSized.Count >= PoolSize)
                             return;
                         _sixSized.Push(values);
                     }
