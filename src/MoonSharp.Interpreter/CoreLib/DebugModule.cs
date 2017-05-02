@@ -126,8 +126,8 @@ namespace MoonSharp.Interpreter.CoreLib
 				return DynValue.Nil;
 
 			return DynValue.NewTuple(
-				DynValue.NewString(closure.Symbols[index]),
-				closure[index]);
+				DynValue.NewString(closure[index].Symbol.Name),
+				closure[index].Get());
 		}
 
 
@@ -146,7 +146,7 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (index < 0 || index >= closure.Count)
 				return DynValue.Nil;
 
-			return DynValue.NewNumber(closure[index].ReferenceID);
+			return DynValue.NewNumber(closure[index].Get().ReferenceID);
 		}
 
 
@@ -165,9 +165,10 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (index < 0 || index >= closure.Count)
 				return DynValue.Nil;
 
-			closure[index] = args[2];
+            var d = args[2];
+            closure[index].Set(ref d);
 
-			return DynValue.NewString(closure.Symbols[index]);
+			return DynValue.NewString(closure[index].Symbol.Name);
 		}
 
 
@@ -188,9 +189,10 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (n2 < 0 || n2 >= c2.ClosureContext.Count)
 				throw ScriptRuntimeException.BadArgument(3, "upvaluejoin", "invalid upvalue index");
 
-			c2.ClosureContext.Values[n2] = c1.ClosureContext.Values[n1];
+			var d = c1.ClosureContext[n1];
+            c2.ClosureContext.ReplaceWith(n2, c1.ClosureContext[n1]);
 
-			return DynValue.Void;
+            return DynValue.Void;
 		}
 
 

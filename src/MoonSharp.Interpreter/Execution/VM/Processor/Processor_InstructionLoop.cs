@@ -201,7 +201,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 							m_ValueStack.Push(scope[index]);
 							break;
 						case OpCode.Upvalue:
-							m_ValueStack.Push(m_ExecutionStack.Peek().ClosureScope[i.Symbol.i_Index]);
+							m_ValueStack.Push(m_ExecutionStack.Peek().ClosureScope[i.Symbol.i_Index].Get());
 							break;
 						case OpCode.StoreUpv:
 							ExecStoreUpv(i);
@@ -295,9 +295,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 						DynValue handled = csi.ErrorHandler.Invoke(new ScriptExecutionContext(this, csi.ErrorHandler, GetCurrentSourceRef(instructionPtr)), cbargs);
 
 						m_ValueStack.Push(handled);
-
-                        if (csi.LocalScope != null)
-                            DynValueArray.Release(csi.LocalScope);
+					    csi.Release();
 
 						goto repeat_execution;
 					}
@@ -374,7 +372,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			SymbolRef symref = i.Symbol;
 
 			var stackframe = m_ExecutionStack.Peek();
-			stackframe.ClosureScope.Values[symref.i_Index] = value;
+			stackframe.ClosureScope[symref.i_Index].Set(ref value);
 		}
 
 		private void ExecSwap(Instruction i)
@@ -406,20 +404,25 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		private void ExecClosure(Instruction i)
 		{
-		    DynValue[] values = DynValueArray.Request(i.SymbolList.Length);
+            ClosureRefValue[] values = new ClosureRefValue[i.SymbolList.Length];
 		    for (int index = 0; index < values.Length; index++)
+            { 
 		        values[index] = GetUpvalueSymbol(i.SymbolList[index]);
+            }
 
-		    Closure c = new Closure(m_Script, i.NumVal, i.SymbolList, values);
+            Closure c = new Closure(m_Script, i.NumVal, values);
 
 			m_ValueStack.Push(DynValue.NewClosure(c));
 		}
 
-		private DynValue GetUpvalueSymbol(SymbolRef s)
+		private ClosureRefValue GetUpvalueSymbol(SymbolRef s)
 		{
 			if (s.Type == SymbolRefType.Local)
-				return m_ExecutionStack.Peek().LocalScope[s.i_Index];
-			else if (s.Type == SymbolRefType.Upvalue)
+			{
+			    var csi = m_ExecutionStack.Peek();
+                return new ClosureRefValue(s, csi.LocalScope.IndexAt(s.Index));
+            }
+            else if (s.Type == SymbolRefType.Upvalue)
 				return m_ExecutionStack.Peek().ClosureScope[s.i_Index];
 			else
 				throw new Exception("unsupported symbol type");
@@ -568,11 +571,9 @@ namespace MoonSharp.Interpreter.Execution.VM
 			CallStackItem cur = m_ExecutionStack.Pop();
 
 			cur.Debug_Symbols = i.SymbolList;
-			cur.LocalScope = DynValueArray.Request(i.NumVal);
+            cur.LocalScope = new LocalScope(i.NumVal);
 
             m_ExecutionStack.Push(cur);
-
-            ClearBlockData(i);
 		}
 
 		private CallStackItem PopToBasePointer()
@@ -631,14 +632,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 				else if ((i == I.SymbolList.Length - 1) && (I.SymbolList[i].i_Name == WellKnownSymbols.VARARGS))
 				{
 					int len = argsList.Count - i;
-					DynValue[] varargs = DynValueArray.Request(len);
+					DynValue[] varargs = PooledArray<DynValue>.Request(len);
 
 					for (int ii = 0; ii < len; ii++, i++)
 					{
 						varargs[ii] = argsList[i].ToScalar();
 					}
 				    var adjustedArgs = Internal_AdjustTuple(varargs);
-                    DynValueArray.Release(varargs);
+                    PooledArray<DynValue>.Release(varargs);
                     this.AssignLocal(I.SymbolList[I.SymbolList.Length - 1], DynValue.NewTuple(adjustedArgs));
 				}
 				else
@@ -701,13 +702,13 @@ namespace MoonSharp.Interpreter.Execution.VM
 					Flags = flags,
 				});
 
-				DynValue[] args = DynValueArray.Request(argsCount);
+				DynValue[] args = PooledArray<DynValue>.Request(argsCount);
 				for (int index = 0; index < argsList.Count; index++)
 					args[index] = argsList[index];
 				argsList.Clear();
 
 				var ret = fn.Callback.Invoke(new ScriptExecutionContext(this, fn.Callback, sref), args, isMethodCall: thisCall);
-				DynValueArray.Release(args);
+                PooledArray<DynValue>.Release(args);
 
 				m_ValueStack.RemoveLast(argsCount + 1);
 				m_ValueStack.Push(ret);
@@ -773,8 +774,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 		    Args.Clear();
 
-            if (csi.LocalScope != null)
-                DynValueArray.Release(csi.LocalScope);
+            csi.Release();
 
             return retpoint;
 		}
@@ -813,16 +813,15 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 			if (csi.Continuation != null)
 			{
-				var args = DynValueArray.Request(1);
+				var args = PooledArray<DynValue>.Request(1);
 				args[0] = m_ValueStack.Pop();
 				m_ValueStack.Push(csi.Continuation.Invoke(new ScriptExecutionContext(this, csi.Continuation, i.SourceCodeRef),
 					args));
-                DynValueArray.Release(args);
+                PooledArray<DynValue>.Release(args);
 			}
+		    csi.Release();
 
-			if (csi.LocalScope != null)
-				DynValueArray.Release(csi.LocalScope);
-			return retpoint;
+            return retpoint;
 		}
 
 

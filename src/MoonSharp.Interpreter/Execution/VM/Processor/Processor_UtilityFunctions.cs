@@ -7,13 +7,13 @@ namespace MoonSharp.Interpreter.Execution.VM
         private DynValue[] Internal_AdjustTuple(IList<DynValue> values)
         {
             if (values == null || values.Count == 0)
-                return DynValueArray.Request(0);
+                return PooledArray<DynValue>.Request(0);
 
             DynValue[] result;
             if (values[values.Count - 1].Type == DataType.Tuple)
             {
                 int baseLen = values.Count - 1 + values[values.Count - 1].Tuple.Length;
-                result = DynValueArray.Request(baseLen);
+                result = PooledArray<DynValue>.Request(baseLen);
 
                 for (int i = 0; i < values.Count - 1; i++)
                 {
@@ -29,12 +29,12 @@ namespace MoonSharp.Interpreter.Execution.VM
                 {
                     var oldResult = result;
                     result = Internal_AdjustTuple(result);
-                    DynValueArray.Release(oldResult);
+                    PooledArray<DynValue>.Release(oldResult);
                 }
             }
             else
             {
-                result = DynValueArray.Request(values.Count);
+                result = PooledArray<DynValue>.Request(values.Count);
 
                 for (int i = 0; i < values.Count; i++)
                 {

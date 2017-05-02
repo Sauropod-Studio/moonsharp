@@ -6,59 +6,73 @@ namespace MoonSharp.Interpreter.Execution
 	/// <summary>
 	/// The scope of a closure (container of upvalues)
 	/// </summary>
-	internal struct ClosureContext 
+	internal struct ClosureContext
 	{
-        private static long ID_GEN = 1;
+	    private ClosureRefValue[] _closureRefs;
 
-        /// <summary>
-        /// Gets a value indicating whether this location is inside CLR .
-        /// </summary>
-        public long Id { get; }
-
-        /// <summary>
-        /// Gets the symbols.
-        /// </summary>
-        public SymbolsWrapper Symbols { get; private set; }
-
-        /// <summary>
-        /// Gets the dynValues.
-        /// </summary>
-        public DynValue[] Values { get; }
-
-        internal ClosureContext(SymbolRef[] symbols, DynValue[] values)
+        internal ClosureContext(ClosureRefValue[] refs)
         {
-            Id = System.Threading.Interlocked.Increment(ref ID_GEN);
-            Symbols = new SymbolsWrapper(symbols);
-            Values = values;
-		}
-
-        public bool IsEmpty() { return Id != 0; }
-
-        public DynValue this[int i]
-	    {
-	        get { return Values[i]; }
-            set { Values[i] = value; }
+            _closureRefs = refs;
+            for (int index = 0; index < _closureRefs.Length; index++)
+            {
+                _closureRefs[index].IncrementReferenceCount();
+            }
         }
 
-        public int Count { get { return Values.Length;} }
+	    public bool IsEmpty() { return _closureRefs == null; }
 
-	    public void ReleaseArray()
+        public ClosureRefValue this[int i]
 	    {
-            DynValueArray.Release(Values);
+	        get { return _closureRefs[i]; }
+        }
+
+        public int Count { get { return _closureRefs.Length;} }
+
+	    public void ReplaceWith(int i, ClosureRefValue refValue)
+	    {
+	        _closureRefs[i].DecreaseReferenceCount();
+            _closureRefs[i] = refValue;
+            refValue.IncrementReferenceCount();
+        }
+
+	    public void ReleaseValues()
+	    {
+            for (int index = 0; index < _closureRefs.Length; index++)
+            {
+                _closureRefs[index].DecreaseReferenceCount();
+            }
         }
     }
 
-    internal struct SymbolsWrapper
+    internal struct ClosureRefValue
     {
-        private SymbolRef[] _symbols;
+        private int index;
+        public SymbolRef Symbol;
 
-        public SymbolsWrapper(SymbolRef[] symbols)
+        public ClosureRefValue(SymbolRef s, int index)
         {
-            this._symbols = symbols;
+            this.index = index;
+            Symbol = s;
         }
 
-        public string this[int i] { get { return _symbols[i].Name; } }
+        public DynValue Get()
+        {
+            return HeapAllocatedDynValue.Get(index);
+        }
 
-        public int Length { get { return _symbols.Length; } }
+        public void Set(ref DynValue v)
+        {
+            HeapAllocatedDynValue.Set(index, ref v);
+        }
+
+        public void DecreaseReferenceCount()
+        {
+            HeapAllocatedDynValue.DecreaseReferenceCount(index);
+        }
+
+        public void IncrementReferenceCount()
+        {
+            HeapAllocatedDynValue.IncrementReferenceCount(index);
+        }
     }
 }

@@ -319,7 +319,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 			List<WatchItem> locals = new List<WatchItem>();
 			var top = this.m_ExecutionStack.Peek();
 
-			if (top.Debug_Symbols != null && top.LocalScope != null)
+			if (top.Debug_Symbols != null && top.LocalScope._indices != null)
 			{
 				int len = Math.Min(top.Debug_Symbols.Length, top.LocalScope.Length);
 

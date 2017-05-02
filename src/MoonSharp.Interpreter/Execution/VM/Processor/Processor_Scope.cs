@@ -10,13 +10,14 @@ namespace MoonSharp.Interpreter.Execution.VM
 			int from = I.NumVal;
 			int to = I.NumVal2;
 
-			var array = this.m_ExecutionStack.Peek().LocalScope;
+			var callStackItem = this.m_ExecutionStack.Peek();
 
-			if (to >= 0 && from >= 0 && to >= from)
-			{
-				Array.Clear(array, from, to - from + 1);
-			}
-		}
+            if (to >= 0 && from >= 0 && to >= from)
+            {
+                for (int i = from; i <= to; i++)
+                    callStackItem.LocalScope.Reassign(i);
+            }
+        }
 
 
 		public DynValue GetGenericSymbol(SymbolRef symref)
@@ -33,7 +34,7 @@ namespace MoonSharp.Interpreter.Execution.VM
                     return stackframe.LocalScope[symref.i_Index];
 				case SymbolRefType.Upvalue:
                     GetTopNonClrFunction(out stackframe);
-                    return stackframe.ClosureScope[symref.i_Index];
+                    return stackframe.ClosureScope[symref.i_Index].Get();
 				default:
 					throw new InternalErrorException("Unexpected {0} LRef at resolution: {1}", symref.i_Type, symref.i_Name);
 			}
@@ -67,9 +68,7 @@ namespace MoonSharp.Interpreter.Execution.VM
 					{
 						CallStackItem stackframe;
                         GetTopNonClrFunction(out stackframe);
-
-						if (!stackframe.LocalScope[symref.i_Index].IsValid)
-							stackframe.LocalScope[symref.i_Index] = value;
+						stackframe.LocalScope[symref.i_Index] = value;
 					}
 					break;
 				case SymbolRefType.Upvalue:
@@ -77,8 +76,7 @@ namespace MoonSharp.Interpreter.Execution.VM
                         CallStackItem stackframe;
                         GetTopNonClrFunction(out stackframe);
 
-                        if (!stackframe.LocalScope[symref.i_Index].IsValid)
-                            stackframe.LocalScope[symref.i_Index] = value;
+					    stackframe.ClosureScope[symref.i_Index].Set(ref value);
 					}
 					break;
 				case SymbolRefType.DefaultEnv:
@@ -130,8 +128,8 @@ namespace MoonSharp.Interpreter.Execution.VM
 
 					if (!closure.IsEmpty())
 					{
-						for (int i = 0; i < closure.Symbols.Length; i++)
-							if (closure.Symbols[i] == name)
+						for (int i = 0; i < closure.Count; i++)
+							if (closure[i].Symbol.Name == name)
 								return SymbolRef.Upvalue(name, i);
 					}
 				}

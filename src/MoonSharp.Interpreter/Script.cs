@@ -6,6 +6,7 @@ using System.Text;
 using MoonSharp.Interpreter.CoreLib;
 using MoonSharp.Interpreter.Debugging;
 using MoonSharp.Interpreter.Diagnostics;
+using MoonSharp.Interpreter.Execution;
 using MoonSharp.Interpreter.Execution.VM;
 using MoonSharp.Interpreter.IO;
 using MoonSharp.Interpreter.Platforms;
@@ -461,13 +462,15 @@ namespace MoonSharp.Interpreter
 				// if we find the meta for a new chunk, we use the value in the meta for the _ENV upvalue
 				if ((meta != null) && (meta.NumVal2 == (int)OpCodeMetadataType.ChunkEntrypoint))
 				{
-					c = new Closure(this, address,
-						new SymbolRef[] { SymbolRef.Upvalue(WellKnownSymbols.ENV, 0) },
-						new DynValue[] { meta.Value });
-				}
-				else
+				    var index = HeapAllocatedDynValue.Allocate(ref meta.Value);
+                    ClosureRefValue refValue = new ClosureRefValue(SymbolRef.Upvalue(WellKnownSymbols.ENV, 0), index);
+                    c = new Closure(this, address, new ClosureRefValue[]{refValue});
+                    HeapAllocatedDynValue.DecreaseReferenceCount(index);
+                }
+                else
 				{
-					c = new Closure(this, address, new SymbolRef[0], _emptyDynList);
+                    ClosureRefValue[] refValue = new ClosureRefValue[0];
+                    c = new Closure(this, address, refValue);
 				}
 			}
 			else
@@ -475,10 +478,12 @@ namespace MoonSharp.Interpreter
 				var syms = new SymbolRef[] {
 					new SymbolRef() { i_Env = null, i_Index= 0, i_Name = WellKnownSymbols.ENV, i_Type =  SymbolRefType.DefaultEnv },
 				};
-
-				var vals = new DynValue[] { DynValue.NewTable(envTable) };
-				c = new Closure(this, address, syms, vals);
-			}
+			    var d = DynValue.NewTable(envTable);
+                var index = HeapAllocatedDynValue.Allocate(ref d);
+                ClosureRefValue refValue = new ClosureRefValue(syms[0], index);
+                c = new Closure(this, address, new ClosureRefValue[] { refValue });
+                HeapAllocatedDynValue.DecreaseReferenceCount(index);
+            }
 
 			return DynValue.NewClosure(c);
 		}

@@ -43,7 +43,7 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// Shortcut for an empty closure
 		/// </summary>
-		private static ClosureContext emptyClosure = new ClosureContext(new SymbolRef[0], new DynValue[0]);
+		private static ClosureContext emptyClosure = new ClosureContext(new ClosureRefValue[0]);
 
 		/// <summary>
 		/// The current closure context
@@ -56,23 +56,17 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="script">The script.</param>
 		/// <param name="idx">The index.</param>
-		/// <param name="symbols">The symbols.</param>
 		/// <param name="resolvedLocals">The resolved locals.</param>
-		internal Closure(Script script, int idx, SymbolRef[] symbols, DynValue[] resolvedLocals)
+		internal Closure(Script script, int idx, ClosureRefValue[] resolvedLocals)
 		{
 			OwnerScript = script;
-
 			EntryPointByteCodeLocation = idx;
-
-			if (symbols.Length > 0)
-				ClosureContext = new ClosureContext(symbols, resolvedLocals);
-			else
-				ClosureContext = emptyClosure;
+			ClosureContext = new ClosureContext(resolvedLocals);
 		}
 
 	    ~Closure()
 	    {
-	        ClosureContext.ReleaseArray();
+	        ClosureContext.ReleaseValues();
 	    }
 
 		/// <summary>
@@ -189,7 +183,7 @@ namespace MoonSharp.Interpreter
 		/// <returns>The upvalue name</returns>
 		public string GetUpvalueName(int idx)
 		{
-			return ClosureContext.Symbols[idx];
+			return ClosureContext[idx].Symbol.Name;
 		}
 
 		/// <summary>
@@ -199,7 +193,7 @@ namespace MoonSharp.Interpreter
 		/// <returns>The value of an upvalue </returns>
 		public DynValue GetUpvalue(int idx)
 		{
-			return ClosureContext[idx];
+			return ClosureContext[idx].Get();
 		}
 
 		/// <summary>

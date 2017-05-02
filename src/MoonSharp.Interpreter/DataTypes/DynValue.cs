@@ -2,12 +2,88 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using MoonSharp.Interpreter.Interop.Converters;
 
 namespace MoonSharp.Interpreter
 {
+
+    public static class HeapAllocatedDynValue
+    {
+        public const int HEAP_SIZE = 1024*1024*10;
+
+        private static int _size = 0;
+        private static DynValue[] _heapAllocatedDynValue = new DynValue[HEAP_SIZE];
+        private static int[] _refCount = new int[HEAP_SIZE];
+        private static Stack<int> _emptySlots = new Stack<int>(1024*1024);
+
+        public static int Allocate()
+        {
+            int position;
+            lock (_emptySlots) {
+                position = _emptySlots.Count > 0 ? _emptySlots.Pop() : _size++;
+            }
+            _refCount[position] = 1;
+            return position;
+        }
+
+
+        public static int Allocate(ref DynValue v)
+        {
+            int position = Allocate();
+            _heapAllocatedDynValue[position] = v;
+            return position;
+        }
+
+        public static void Allocate(int[] array)
+        {
+            int position;
+            lock (_emptySlots)
+            {
+                for (int i = 0; i < array.Length; i++)
+                {
+                    array[i] = position = _emptySlots.Count > 0 ? _emptySlots.Pop() : _size++;
+                    _refCount[position] = 1;
+                }
+            }
+        }
+
+        public static void IncrementReferenceCount(int i)
+        {
+            lock (_emptySlots)
+                _refCount[i]++;
+        }
+
+        public static void DecreaseReferenceCount(int i)
+        {
+            lock (_emptySlots)
+            {
+                if (--_refCount[i] == 0)
+                {
+                    _heapAllocatedDynValue[i] = default(DynValue);
+                    _emptySlots.Push(i);
+                }
+            }
+        }
+
+        public static void DecreaseReferenceCount(int[] array)
+        {
+            for (int i = 0; i < array.Length; i++)
+            {
+                DecreaseReferenceCount(array[i]);
+            }
+        }
+
+        public static DynValue Get(int i)
+        {
+            return _heapAllocatedDynValue[i];
+        }
+
+        public static void Set(int i, ref DynValue value)
+        {
+            _heapAllocatedDynValue[i] = value;
+        }
+    }
 
     /// <summary>
     /// A class representing a value in a Lua/MoonSharp script.
@@ -16,6 +92,7 @@ namespace MoonSharp.Interpreter
     public struct DynValue : IEquatable<DynValue>
     {
         public static DynValue Invalid = default(DynValue);
+
         private static int s_RefIDCounter = 0;
 
 //        [FieldOffset(0)]
@@ -334,7 +411,7 @@ namespace MoonSharp.Interpreter
         /// </summary>
         public static DynValue NewTuple(DynValue value0, DynValue value1)
         {
-            var array = DynValueArray.Request(2);
+            var array = PooledArray<DynValue>.Request(2);
             array[0] = value0;
             array[1] = value1;
             return _NewTuple(array);
@@ -345,7 +422,7 @@ namespace MoonSharp.Interpreter
         /// </summary>
         public static DynValue NewTuple(DynValue value0, DynValue value1, DynValue value2)
         {
-            var array = DynValueArray.Request(3);
+            var array = PooledArray<DynValue>.Request(3);
             array[0] = value0;
             array[1] = value1;
             array[2] = value2;
@@ -357,7 +434,7 @@ namespace MoonSharp.Interpreter
         /// </summary>
         public static DynValue NewTuple(DynValue value0, DynValue value1, DynValue value2, DynValue value3)
         {
-            var array = DynValueArray.Request(4);
+            var array = PooledArray<DynValue>.Request(4);
             array[0] = value0;
             array[1] = value1;
             array[2] = value2;
@@ -928,67 +1005,67 @@ namespace MoonSharp.Interpreter
 		}
     }
 
-    public static class DynValueArray
+    public static class PooledArray<T>
     {
-        private static DynValue[] _zeroSized = new DynValue[0];
+        private static T[] _zeroSized = new T[0];
         private const int PoolSize = 5000;
-        private static readonly Stack<DynValue[]> _oneSized =   new Stack<DynValue[]>(PoolSize);
-        private static readonly Stack<DynValue[]> _twoSized =   new Stack<DynValue[]>(PoolSize);
-        private static readonly Stack<DynValue[]> _threeSized = new Stack<DynValue[]>(PoolSize);
-        private static readonly Stack<DynValue[]> _fourSized = new Stack<DynValue[]>(PoolSize);
-        private static readonly Stack<DynValue[]> _fiveSized = new Stack<DynValue[]>(PoolSize);
-        private static readonly Stack<DynValue[]> _sixSized = new Stack<DynValue[]>(PoolSize);
+        private static readonly Stack<T[]> _oneSized = new Stack<T[]>(PoolSize);
+        private static readonly Stack<T[]> _twoSized = new Stack<T[]>(PoolSize);
+        private static readonly Stack<T[]> _threeSized = new Stack<T[]>(PoolSize);
+        private static readonly Stack<T[]> _fourSized = new Stack<T[]>(PoolSize);
+        private static readonly Stack<T[]> _fiveSized = new Stack<T[]>(PoolSize);
+        private static readonly Stack<T[]> _sixSized = new Stack<T[]>(PoolSize);
 
-        public static DynValue[] Request(int i)
+        public static T[] Request(int i)
         {
-            DynValue[] array;
+            T[] array;
             switch (i)
             {
                 case 0:
                     return _zeroSized;
                 case 1:
                     lock (_oneSized)
-                    { 
-                        array = _oneSized.Count == 0 ? new DynValue[i] : _oneSized.Pop();
+                    {
+                        array = _oneSized.Count == 0 ? new T[i] : _oneSized.Pop();
                     }
                     break;
                 case 2:
                     lock (_twoSized)
                     {
-                        array = _twoSized.Count == 0 ? new DynValue[i] : _twoSized.Pop();
+                        array = _twoSized.Count == 0 ? new T[i] : _twoSized.Pop();
                     }
                     break;
                 case 3:
                     lock (_threeSized)
                     {
-                        array = _threeSized.Count == 0 ? new DynValue[i] : _threeSized.Pop();
+                        array = _threeSized.Count == 0 ? new T[i] : _threeSized.Pop();
                     }
                     break;
                 case 4:
                     lock (_fourSized)
                     {
-                        array = _fourSized.Count == 0 ? new DynValue[i] : _fourSized.Pop();
+                        array = _fourSized.Count == 0 ? new T[i] : _fourSized.Pop();
                     }
                     break;
                 case 5:
                     lock (_fiveSized)
                     {
-                        array = _fiveSized.Count == 0 ? new DynValue[i] : _fiveSized.Pop();
+                        array = _fiveSized.Count == 0 ? new T[i] : _fiveSized.Pop();
                     }
                     break;
                 case 6:
                     lock (_sixSized)
                     {
-                        array = _sixSized.Count == 0 ? new DynValue[i] : _sixSized.Pop();
+                        array = _sixSized.Count == 0 ? new T[i] : _sixSized.Pop();
                     }
                     break;
                 default:
-                    return new DynValue[i];
+                    return new T[i];
             }
             return array;
         }
 
-        public static void Release(DynValue[] values)
+        public static void Release(T[] values)
         {
             switch (values.Length)
             {
