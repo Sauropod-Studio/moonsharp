@@ -9,13 +9,22 @@ namespace MoonSharp.Interpreter
 	/// </summary>
 	public class Table : RefIdObject, IScriptPrivateResource
 	{
-		readonly LinkedList<TablePair> m_Values;
-		readonly LinkedListIndex<DynValue, TablePair> m_ValueMap;
-		readonly LinkedListIndex<string, TablePair> m_StringMap;
-		readonly LinkedListIndex<int, TablePair> m_ArrayMap;
+		LinkedList<TablePair> m_ValuesList;
+		LinkedListIndex<DynValue, TablePair> m_ValueMap;
+		LinkedListIndex<string, TablePair> m_StringMap;
+		LinkedListIndex<int, TablePair> m_ArrayMap;
 		readonly Script m_Owner;
 
-		int m_InitArray = 0;
+        private LinkedList<TablePair> ValuesList
+        {
+            get
+            {
+                if(m_ValuesList == null) m_ValuesList = new LinkedList<TablePair>();
+                return m_ValuesList;
+            }
+        }
+
+        int m_InitArray = 0;
 		int m_CachedLength = -1;
 		bool m_ContainsNilEntries = false;
 
@@ -25,10 +34,6 @@ namespace MoonSharp.Interpreter
 		/// <param name="owner">The owner script.</param>
 		public Table(Script owner)
 		{
-			m_Values = new LinkedList<TablePair>();
-			m_StringMap = new LinkedListIndex<string, TablePair>(m_Values);
-			m_ArrayMap = new LinkedListIndex<int, TablePair>(m_Values);
-			m_ValueMap = new LinkedListIndex<DynValue, TablePair>(m_Values);
 			m_Owner = owner;
 		}
 
@@ -73,10 +78,10 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public void Clear()
 		{
-			m_Values.Clear();
-			m_StringMap.Clear();
-			m_ArrayMap.Clear();
-			m_ValueMap.Clear();
+            if (m_ValuesList != null) ValuesList.Clear();
+			if (m_StringMap != null) m_StringMap.Clear();
+            if (m_ArrayMap != null) m_ArrayMap.Clear();
+            if (m_ValueMap != null) m_ValueMap.Clear();
             m_CachedLength = -1;
 		}
 
@@ -168,7 +173,9 @@ namespace MoonSharp.Interpreter
 		public void Append(DynValue value)
 		{
 			this.CheckScriptOwnership(value);
-			PerformTableSet(m_ArrayMap, Length + 1, DynValue.NewNumber(Length + 1), value, true, Length + 1);
+
+            if (m_ArrayMap == null) m_ArrayMap = new LinkedListIndex<int, TablePair>(ValuesList);
+            PerformTableSet(m_ArrayMap, Length + 1, DynValue.NewNumber(Length + 1), value, true, Length + 1);
 		}
 
 		#region Set
@@ -198,15 +205,22 @@ namespace MoonSharp.Interpreter
 					// If this is an array append, let's check the next element before blindly invalidating
 					if (appendKey >= 0)
 					{
-						LinkedListNode<TablePair> next = m_ArrayMap.Find(appendKey + 1);
-						if (next == null || next.Value.Value.IsNil())
-						{
-							m_CachedLength += 1;
-						}
-						else
-						{
-							m_CachedLength = -1;
-						}
+                        if (m_ArrayMap == null)
+                        {
+                            m_CachedLength += 1;
+                        }
+                        else
+                        {
+                            LinkedListNode<TablePair> next = m_ArrayMap.Find(appendKey + 1);
+                            if (next == null || next.Value.Value.IsNil())
+                            {
+                                m_CachedLength += 1;
+                            }
+                            else
+                            {
+                                m_CachedLength = -1;
+                            }
+                        }
 					}
 					else
 					{
@@ -227,7 +241,9 @@ namespace MoonSharp.Interpreter
 				throw ScriptRuntimeException.TableIndexIsNil();
 
 			this.CheckScriptOwnership(value);
-			PerformTableSet(m_StringMap, key, DynValue.NewString(key), value, false, -1);
+
+            if (m_StringMap == null) m_StringMap = new LinkedListIndex<string, TablePair>(ValuesList);
+            PerformTableSet(m_StringMap, key, DynValue.NewString(key), value, false, -1);
 		}
 
 		/// <summary>
@@ -238,7 +254,9 @@ namespace MoonSharp.Interpreter
 		public void Set(int key, DynValue value)
 		{
 			this.CheckScriptOwnership(value);
-			PerformTableSet(m_ArrayMap, key, DynValue.NewNumber(key), value, true, -1);
+
+            if (m_ArrayMap == null) m_ArrayMap = new LinkedListIndex<int, TablePair>(ValuesList);
+            PerformTableSet(m_ArrayMap, key, DynValue.NewNumber(key), value, true, -1);
 		}
 
 		/// <summary>
@@ -276,7 +294,8 @@ namespace MoonSharp.Interpreter
 			this.CheckScriptOwnership(key);
 			this.CheckScriptOwnership(value);
 
-			PerformTableSet(m_ValueMap, key, key, value, false, -1);
+            if (m_ValueMap == null) m_ValueMap = new LinkedListIndex<DynValue, TablePair>(ValuesList);
+            PerformTableSet(m_ValueMap, key, key, value, false, -1);
 		}
 
 		/// <summary>
@@ -425,8 +444,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(string key)
-		{
-			return RawGetValue(m_StringMap.Find(key));
+        {
+            if (m_StringMap == null) return DynValue.Invalid;
+            return RawGetValue(m_StringMap.Find(key));
 		}
 
 		/// <summary>
@@ -435,8 +455,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(int key)
-		{
-			return RawGetValue(m_ArrayMap.Find(key));
+        {
+            if (m_ArrayMap == null) return DynValue.Invalid;
+            return RawGetValue(m_ArrayMap.Find(key));
 		}
 
 		/// <summary>
@@ -455,7 +476,7 @@ namespace MoonSharp.Interpreter
 				if (idx > 0)
 					return RawGet(idx);
 			}
-
+            if (m_ValueMap == null) return DynValue.Invalid;
 			return RawGetValue(m_ValueMap.Find(key));
 		}
 
@@ -526,8 +547,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(string key)
-		{
-			return PerformTableRemove(m_StringMap, key, false);
+        {
+            if (m_StringMap == null) return false;
+            return PerformTableRemove(m_StringMap, key, false);
 		}
 
 		/// <summary>
@@ -536,8 +558,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(int key)
-		{
-			return PerformTableRemove(m_ArrayMap, key, true);
+        {
+            if (m_ArrayMap == null) return false;
+            return PerformTableRemove(m_ArrayMap, key, true);
 		}
 
 		/// <summary>
@@ -557,7 +580,8 @@ namespace MoonSharp.Interpreter
 					return Remove(idx);
 			}
 
-			return PerformTableRemove(m_ValueMap, key, false);
+            if (m_ValueMap == null) return false;
+            return PerformTableRemove(m_ValueMap, key, false);
 		}
 
 		/// <summary>
@@ -600,13 +624,16 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public void CollectDeadKeys()
 		{
-			for (LinkedListNode<TablePair> node = m_Values.First; node != null; node = node.Next)
-			{
-				if (node.Value.Value.IsNil())
-				{
-					Remove(node.Value.Key);
-				}
-			}
+            if (m_ValuesList != null)
+            {
+                for (LinkedListNode<TablePair> node = ValuesList.First; node != null; node = node.Next)
+                {
+                    if (node.Value.Value.IsNil())
+                    {
+                        Remove(node.Value.Key);
+                    }
+                }
+            }
 
 			m_ContainsNilEntries = false;
 			m_CachedLength = -1;
@@ -619,8 +646,9 @@ namespace MoonSharp.Interpreter
 		public TablePair? NextKey(DynValue v)
 		{
 			if (v.IsNil())
-			{
-				LinkedListNode<TablePair> node = m_Values.First;
+            {
+                if (m_ValuesList == null) return TablePair.Nil;
+                LinkedListNode<TablePair> node = ValuesList.First;
 
 				if (node == null)
 					return TablePair.Nil;
@@ -634,8 +662,9 @@ namespace MoonSharp.Interpreter
 			}
 
 			if (v.Type == DataType.String)
-			{
-				return GetNextOf(m_StringMap.Find(v.String));
+            {
+                if (m_StringMap == null) return null;
+                return GetNextOf(m_StringMap.Find(v.String));
 			}
 
 			if (v.Type == DataType.Number)
@@ -643,12 +672,14 @@ namespace MoonSharp.Interpreter
 				int idx = GetIntegralKey(v.Number);
 
 				if (idx > 0)
-				{
-					return GetNextOf(m_ArrayMap.Find(idx));
+                {
+                    if (m_ArrayMap == null) return null;
+                    return GetNextOf(m_ArrayMap.Find(idx));
 				}
 			}
 
-			return GetNextOf(m_ValueMap.Find(v));
+            if (m_ValueMap == null) return null;
+            return GetNextOf(m_ValueMap.Find(v));
 		}
 
 		private TablePair? GetNextOf(LinkedListNode<TablePair> linkedListNode)
@@ -679,9 +710,11 @@ namespace MoonSharp.Interpreter
 				if (m_CachedLength < 0)
 				{
 					m_CachedLength = 0;
-
-					for (int i = 1; m_ArrayMap.ContainsKey(i) && !m_ArrayMap.Find(i).Value.Value.IsNil(); i++)
-						m_CachedLength = i;
+                    if (m_ArrayMap != null)
+                    {
+                        for (int i = 1; m_ArrayMap.ContainsKey(i) && !m_ArrayMap.Find(i).Value.Value.IsNil(); i++)
+                            m_CachedLength = i;
+                    }
 				}
 
 				return m_CachedLength;
@@ -721,9 +754,11 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return m_Values.Select(n => new TablePair(n.Key, n.Value));
+				return m_ValuesList != null ? ValuesList.Select(n => new TablePair(n.Key, n.Value)) : Enumerable.Empty<TablePair>();
 			}
 		}
+
+        
 
 		/// <summary>
 		/// Enumerates the keys.
@@ -733,7 +768,7 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return m_Values.Select(n => n.Key);
+                return m_ValuesList != null ? ValuesList.Select(n => n.Key) : Enumerable.Empty<DynValue>();
 			}
 		}
 
@@ -745,7 +780,7 @@ namespace MoonSharp.Interpreter
 		{
 			get
 			{
-				return m_Values.Select(n => n.Value);
+				return m_ValuesList != null ? ValuesList.Select(n => n.Value) : Enumerable.Empty<DynValue>();
 			}
 		}
 	}
