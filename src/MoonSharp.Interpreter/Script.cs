@@ -199,6 +199,10 @@ namespace MoonSharp.Interpreter
 			}
 		}
 
+	    public string[] GetByteCode()
+	    {
+	        return m_ByteCode.Code.Select(s => s.ToString()).ToArray();
+	    }
 
 		/// <summary>
 		/// Loads a string containing a Lua/MoonSharp script.
