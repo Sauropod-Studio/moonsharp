@@ -222,9 +222,9 @@ namespace MoonSharp.Interpreter.CoreLib
             string format = args.AsString(0, "format");
             string toreturn;
             if (args.Count == 1) toreturn = string.Format(format);
-            if (args.Count == 2) toreturn = string.Format(format, args.RawGet(1, true).ToString());
-            if (args.Count == 3) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString());
-            if (args.Count == 4) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString(), args.RawGet(3, true).ToString());
+            else if(args.Count == 2) toreturn = string.Format(format, args.RawGet(1, true).ToString());
+            else if(args.Count == 3) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString());
+            else if(args.Count == 4) toreturn = string.Format(format, args.RawGet(1, true).ToString(), args.RawGet(2, true).ToString(), args.RawGet(3, true).ToString());
             else
             {
                 string[] array = new string[args.Count - 1];
@@ -233,6 +233,32 @@ namespace MoonSharp.Interpreter.CoreLib
                     array[i] = args.RawGet(i + 1, true).ToString();
                 }
                 toreturn = string.Format(format, array);
+            }
+            return DynValue.NewString(toreturn);
+        }
+
+        private static string _castToString(DynValue dv)
+        {
+            if (dv.Type == DataType.String) return dv.String;
+            return dv.ToDebugPrintString();
+        }
+
+        [MoonSharpModuleMethod]
+        public static DynValue concat(ScriptExecutionContext executionContext, CallbackArguments args)
+        {
+            if (args.Count < 1) throw ScriptRuntimeException.BadArgumentValueExpected(0, "concat");
+
+            string toreturn = "";
+            if(args.Count == 1) toreturn = _castToString(args.RawGet(0, true));
+            else if (args.Count == 2) toreturn = _castToString(args.RawGet(0, true)) + _castToString(args.RawGet(1, true));
+            else if (args.Count == 3) toreturn = _castToString(args.RawGet(0, true)) + _castToString(args.RawGet(1, true)) + _castToString(args.RawGet(2, true));
+            else if (args.Count == 4) toreturn = _castToString(args.RawGet(0, true)) + _castToString(args.RawGet(1, true)) + _castToString(args.RawGet(2, true)) + _castToString(args.RawGet(3, true));
+            else
+            {
+                for (int i = 0; i != args.Count; i++)
+                {
+                    toreturn += _castToString(args.RawGet(i + 1, true));
+                }
             }
             return DynValue.NewString(toreturn);
         }
