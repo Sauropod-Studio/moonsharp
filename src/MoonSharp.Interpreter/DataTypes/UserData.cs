@@ -34,6 +34,11 @@ namespace MoonSharp.Interpreter
 
         private static Stack<UserDataStruct<T>> _pool = new Stack<UserDataStruct<T>>(MAX_POOL_SIZE);
 
+        static UserDataStruct()
+        {
+            new System.Threading.Thread(() => UserDataStruct<T>.WarnDynValueCache()).Start();
+        }
+
         public static UserDataStruct<T> Request()
         {
             UserDataStruct<T> ud;
@@ -120,6 +125,16 @@ namespace MoonSharp.Interpreter
             if (other.TryGet(out otherT))
                 return t.Equals(otherT);
             return false;
+        }
+
+        internal static void WarnDynValueCache()
+        {
+            lock (_pool)
+            {
+                INSTANCE_AMOUNT = MAX_POOL_SIZE;
+                for (int i = MAX_POOL_SIZE; i > 0; i--)
+                    _pool.Push(new UserDataStruct<T>());
+            }
         }
     }
 
@@ -398,7 +413,7 @@ namespace MoonSharp.Interpreter
 		{
 		    IUserData userData;
 
-		    if (typeof (T).IsValueType)
+		    if (typeof(T).IsValueType)
 		    {
 		        userData = UserDataStruct<T>.Request();
 		    }
