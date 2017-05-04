@@ -101,14 +101,14 @@ namespace MoonSharp.Interpreter.CoreLib
 			if (args.Count < 1) throw ScriptRuntimeException.BadArgumentValueExpected(0, "tostring");
 
 			DynValue v = args[0];
-			DynValue tail = executionContext.GetMetamethodTailCall(v, "__tostring", v);
+			//DynValue tail = executionContext.GetMetamethodTailCall(v, "__tostring", v);
 			
-			if (tail.IsNil())
+			//if (tail.IsNil())
 				return DynValue.NewString(v.ToPrintString());
 
-			tail.TailCallData.Continuation = new CallbackFunction(__tostring_continuation, "__tostring");
+			//tail.TailCallData.Continuation = new CallbackFunction(__tostring_continuation, "__tostring");
 
-			return tail;
+			//return tail;
 		}
 
 		private static DynValue __tostring_continuation(ScriptExecutionContext executionContext, CallbackArguments args)
