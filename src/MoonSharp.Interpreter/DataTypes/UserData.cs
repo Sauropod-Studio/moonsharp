@@ -189,6 +189,11 @@ namespace MoonSharp.Interpreter
         public bool HasValue() { return _object != null; }
         public string AsString() { return Descriptor.AsString(this); }
 
+        public object GetRaw()
+        {
+            return _object;
+        }
+
         public TParam Get<TParam>()
         {
             return (TParam)_object;
