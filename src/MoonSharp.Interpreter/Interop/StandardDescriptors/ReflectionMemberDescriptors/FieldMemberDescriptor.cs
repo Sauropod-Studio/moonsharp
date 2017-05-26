@@ -50,6 +50,7 @@ namespace MoonSharp.Interpreter.Interop
 
         internal override void OptimizeGetter(FieldInfo fi)
         {
+#if !ONLY_AOT
             using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
             {
                 // We want something that behaves like this:
@@ -88,6 +89,7 @@ namespace MoonSharp.Interpreter.Interop
                 }
                 Interlocked.Exchange(ref m_OptimizedGetter, lambda.Compile());
             }
+#endif
         }
 
         void IOptimizableDescriptor.Optimize()

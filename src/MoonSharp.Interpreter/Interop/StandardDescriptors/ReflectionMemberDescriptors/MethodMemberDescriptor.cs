@@ -230,7 +230,8 @@ namespace MoonSharp.Interpreter.Interop
 		/// <exception cref="InternalErrorException">Out/Ref params cannot be precompiled.</exception>
 		void IOptimizableDescriptor.Optimize()
 		{
-			ParameterDescriptor[] parameters = Parameters;
+#if !ONLY_AOT
+            ParameterDescriptor[] parameters = Parameters;
 
 			if (AccessMode == InteropAccessMode.Reflection)
 				return;
@@ -285,7 +286,8 @@ namespace MoonSharp.Interpreter.Interop
 					Interlocked.Exchange(ref m_OptimizedFunc, lambda.Compile());
 				}
 			}
-		}
+#endif
+        }
 
 
 		/// <summary>

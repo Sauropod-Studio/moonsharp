@@ -158,10 +158,10 @@ namespace MoonSharp.Interpreter.Interop.Converters
         /// </summary>
         internal static DynValue GenericToDynValue<T>(Script script, T value)
         {
+#if !ONLY_AOT
             if (typeof (T).IsValueType)
-            {
                 return ValueTypeBoxer<T>.Instance.Convert(value);
-            }
+#endif
             return ObjectToDynValue(script, value);
         }
 

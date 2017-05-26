@@ -163,7 +163,8 @@ namespace MoonSharp.Interpreter.Interop
 
 		internal void OptimizeGetter()
 		{
-			using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
+#if !ONLY_AOT
+            using (PerformanceStatistics.StartGlobalStopwatch(PerformanceCounter.AdaptersCompilation))
 			{
 				if (m_Getter != null)
 				{
@@ -186,7 +187,8 @@ namespace MoonSharp.Interpreter.Interop
 					}
 				}
 			}
-		}
+#endif
+        }
 
 		internal void OptimizeSetter()
 		{
