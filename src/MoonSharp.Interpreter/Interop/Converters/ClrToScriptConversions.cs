@@ -161,6 +161,9 @@ namespace MoonSharp.Interpreter.Interop.Converters
 #if !ONLY_AOT
             if (typeof (T).IsValueType)
                 return ValueTypeBoxer<T>.Instance.Convert(value);
+#else
+            if (typeof(T).IsEnum)
+                return EnumConverter<T>.CreateDynValue(value);
 #endif
             return ObjectToDynValue(script, value);
         }
@@ -204,6 +207,29 @@ namespace MoonSharp.Interpreter.Interop.Converters
         }
 
     }
+
+#if ONLY_AOT
+    public sealed class EnumConverter<TIn>
+    {
+        public static MethodInfo userDataCreator;
+        public static ConstructorInfo LuaEnumProxyContructor;
+        public static object[] _array = new object[1];
+        static EnumConverter()
+        {
+            var tLuaBoxer = typeof(LuaEnumProxy<>).MakeGenericType(typeof(TIn));
+            LuaEnumProxyContructor = tLuaBoxer.GetConstructor(new Type[] { typeof(TIn) });
+            userDataCreator = typeof(UserData).GetMethod("Create", BindingFlags.Static | BindingFlags.Public).MakeGenericMethod(tLuaBoxer);
+        }
+
+        public static DynValue CreateDynValue(TIn tIn)
+        {
+            _array[0] = tIn;
+            object enumProxy = LuaEnumProxyContructor.Invoke(_array);
+            _array[0] = enumProxy;
+            return (DynValue) userDataCreator.Invoke(null, _array);
+        }
+    }
+#endif
 
     public sealed class ValueConverter<TIn, TOut>
     {
@@ -343,13 +369,6 @@ namespace MoonSharp.Interpreter.Interop.Converters
             return (MethodInfo)null;
         }
     }
-
-
-
-
-
-
-
 
 
     public sealed class ValueTypeBoxer<TIn>
