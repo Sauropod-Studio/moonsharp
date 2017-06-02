@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using MoonSharp.Interpreter.DataStructs;
+using System;
 
 namespace MoonSharp.Interpreter
 {
@@ -13,13 +14,14 @@ namespace MoonSharp.Interpreter
 		LinkedListIndex<DynValue, TablePair> m_ValueMap;
 		LinkedListIndex<string, TablePair> m_StringMap;
 		LinkedListIndex<int, TablePair> m_ArrayMap;
-		readonly Script m_Owner;
+		Script m_Owner;
 
         private LinkedList<TablePair> ValuesList
         {
             get
             {
-                if(m_ValuesList == null) m_ValuesList = new LinkedList<TablePair>();
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get ValuesList on dead Table"));
+                if (m_ValuesList == null) m_ValuesList = new LinkedList<TablePair>();
                 return m_ValuesList;
             }
         }
@@ -27,15 +29,68 @@ namespace MoonSharp.Interpreter
         int m_InitArray = 0;
 		int m_CachedLength = -1;
 		bool m_ContainsNilEntries = false;
+        bool _isAlive = true;
+        public bool isAlive
+        {
+            get { return _isAlive; }
+        }
+        public static int count = 0;
+        public static int countGC = 0;
+        public static int countPrime = 0;
 
-		/// <summary>
-		/// Initializes a new instance of the <see cref="Table"/> class.
-		/// </summary>
-		/// <param name="owner">The owner script.</param>
-		public Table(Script owner)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Table"/> class.
+        /// </summary>
+        /// <param name="owner">The owner script.</param>
+        public Table(Script owner)
 		{
 			m_Owner = owner;
-		}
+
+            if (owner != null)
+            {
+                owner.RegisterTable(this);
+                count++;
+            }
+            else
+            {
+                countPrime++;
+            }
+            countGC++;
+        }
+
+        public static void Kill(ref Table tokill)
+        {
+            _Kill(tokill);
+            tokill = null;
+        }
+
+        private static void _Kill(Table tokill)
+        {
+            if (tokill != null && tokill._isAlive)
+            {
+                if (tokill.m_Owner != null)
+                {
+                    count--;
+                }
+                else
+                {
+                    countPrime--;
+                }
+                tokill.Clear();
+                tokill.m_ValuesList = null;
+                tokill.m_ValueMap = null;
+                tokill.m_StringMap = null;
+                tokill.m_ArrayMap = null;
+                tokill.m_Owner = null;
+                tokill._isAlive = false;
+            }
+        }
+
+        ~Table()
+        {
+            _Kill(this);
+            countGC--;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -73,11 +128,34 @@ namespace MoonSharp.Interpreter
 			get { return m_Owner; }
 		}
 
+        public void MakePrime()
+        {
+            if (m_Owner != null)
+            {
+                m_Owner.DeregisterTable(this);
+                m_Owner = null;
+                count--;
+                countPrime++;
+                foreach (TablePair kvp in Pairs)
+                {
+                    DynValue value = kvp.Value;
+                    if (value.IsValid)
+                    {
+                        if (value.Type == DataType.Table)
+                        {
+                            value.Table.MakePrime();
+                        }
+                    }
+                }
+            }
+        }
+
 		/// <summary>
 		/// Removes all items from the Table.
 		/// </summary>
 		public void Clear()
 		{
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Clear on dead Table"));
             if (m_ValuesList != null) ValuesList.Clear();
 			if (m_StringMap != null) m_StringMap.Clear();
             if (m_ArrayMap != null) m_ArrayMap.Clear();
@@ -90,7 +168,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		private int GetIntegralKey(double d)
 		{
-			int v = ((int)d);
+
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to GetIntegralKey on dead Table"));
+            int v = ((int)d);
 
 			if (d >= 1.0 && d == v)
 				return v;
@@ -111,12 +191,14 @@ namespace MoonSharp.Interpreter
 		public object this[params object[] keys]
 		{
 			get
-			{
-				return Get(keys).ToObject<object>();
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get index on dead Table"));
+                return Get(keys).ToObject<object>();
 			}
 			set
-			{
-				Set(keys, DynValue.FromObject(OwnerScript, value));
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to set index on dead Table"));
+                Set(keys, DynValue.FromObject(OwnerScript, value));
 			}
 		}
 
@@ -132,21 +214,24 @@ namespace MoonSharp.Interpreter
 		public object this[object key]
 		{
 			get
-			{
-				return Get(key).ToObject<object>();
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get index on dead Table"));
+                return Get(key).ToObject<object>();
 			}
 			set
-			{
-				Set(key, DynValue.FromObject(OwnerScript, value));
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to set inedx on dead Table"));
+                Set(key, DynValue.FromObject(OwnerScript, value));
 			}
 		}
 
 		private Table ResolveMultipleKeys(object[] keys, out object key)
 		{
-			//Contract.Ensures(Contract.Result<Table>() != null);
-			//Contract.Requires(keys != null);
+            //Contract.Ensures(Contract.Result<Table>() != null);
+            //Contract.Requires(keys != null);
 
-			Table t = this;
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to ResolveMultipleKeys on dead Table"));
+            Table t = this;
 			key = (keys.Length > 0) ? keys[0] : null;
 
 			for (int i = 1; i < keys.Length; ++i)
@@ -172,7 +257,8 @@ namespace MoonSharp.Interpreter
 		/// <param name="value">The value.</param>
 		public void Append(DynValue value)
 		{
-			this.CheckScriptOwnership(value);
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Append on dead Table"));
+            this.CheckScriptOwnership(value);
 
             if (m_ArrayMap == null) m_ArrayMap = new LinkedListIndex<int, TablePair>(ValuesList);
             PerformTableSet(m_ArrayMap, Length + 1, DynValue.NewNumber(Length + 1), value, true, Length + 1);
@@ -181,8 +267,9 @@ namespace MoonSharp.Interpreter
 		#region Set
 
 		private void PerformTableSet<T>(LinkedListIndex<T, TablePair> listIndex, T key, DynValue keyDynValue, DynValue value, bool isNumber, int appendKey)
-		{
-			TablePair prev = listIndex.Set(key, new TablePair(keyDynValue, value));
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to PerformTableSet on dead Table"));
+            TablePair prev = listIndex.Set(key, new TablePair(keyDynValue, value));
 
 			// If this is an insert, we can invalidate all iterators and collect dead keys
 			if (m_ContainsNilEntries && value.IsNotNil() && (prev.Value.IsNil()))
@@ -236,8 +323,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <param name="value">The value.</param>
 		public void Set(string key, DynValue value)
-		{
-			if (key == null)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
+            if (key == null)
 				throw ScriptRuntimeException.TableIndexIsNil();
 
 			this.CheckScriptOwnership(value);
@@ -252,8 +340,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <param name="value">The value.</param>
 		public void Set(int key, DynValue value)
-		{
-			this.CheckScriptOwnership(value);
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
+            this.CheckScriptOwnership(value);
 
             if (m_ArrayMap == null) m_ArrayMap = new LinkedListIndex<int, TablePair>(ValuesList);
             PerformTableSet(m_ArrayMap, key, DynValue.NewNumber(key), value, true, -1);
@@ -265,8 +354,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <param name="value">The value.</param>
 		public void Set(DynValue key, DynValue value)
-		{
-			if (key.IsNilOrNan())
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
+            if (key.IsNilOrNan())
 			{
 				if (key.IsNil())
 					throw ScriptRuntimeException.TableIndexIsNil();
@@ -304,8 +394,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <param name="value">The value.</param>
 		public void Set(object key, DynValue value)
-		{
-			if (key == null)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
+            if (key == null)
 				throw ScriptRuntimeException.TableIndexIsNil();
 
 			if (key is string)
@@ -323,6 +414,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="value">The value.</param>
 		public void Set<T>(T key, DynValue value)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
             if (key == null)
                 throw ScriptRuntimeException.TableIndexIsNil();
 
@@ -336,8 +428,9 @@ namespace MoonSharp.Interpreter
         /// <param name="key">The keys.</param>
         /// <param name="value">The value.</param>
         public void Set(object[] keys, DynValue value)
-		{
-			if (keys == null || keys.Length <= 0)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Set on dead Table"));
+            if (keys == null || keys.Length <= 0)
 				throw ScriptRuntimeException.TableIndexIsNil();
 
 			object key;
@@ -354,6 +447,7 @@ namespace MoonSharp.Interpreter
         /// <param name="key">The key.</param>
         public Table GetTable(string key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to GetTable on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             return RawGet(key).Table ?? null;
         }
@@ -363,7 +457,8 @@ namespace MoonSharp.Interpreter
         /// </summary>
         /// <param name="key">The key.</param>
         public DynValue Get(string key)
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(key);
             return d.IsValid ? d : DynValue.Nil;
@@ -374,7 +469,8 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue Get(int key)
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(key);
             return d.IsValid ? d : DynValue.Nil;
@@ -385,7 +481,8 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue Get(DynValue key)
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(key);
             return d.IsValid ? d : DynValue.Nil;
@@ -397,7 +494,8 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue Get(object key)
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(key);
             return d.IsValid ? d : DynValue.Nil;
@@ -410,6 +508,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue Get<T>(T key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(key);
             return  d.IsValid ? d : DynValue.Nil;
@@ -423,7 +522,8 @@ namespace MoonSharp.Interpreter
         /// </summary>
         /// <param name="keys">The keys to access the table and subtables</param>
         public DynValue Get(params object[] keys)
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Get on dead Table"));
             //Contract.Ensures(Contract.Result<DynValue>() != null);
             var d = RawGet(keys);
             return d.IsValid ? d : DynValue.Nil;
@@ -434,8 +534,8 @@ namespace MoonSharp.Interpreter
 		#region RawGet
 
 		private static DynValue RawGetValue(LinkedListNode<TablePair> linkedListNode)
-		{
-			return (linkedListNode != null) ? linkedListNode.Value.Value : DynValue.Invalid;
+        {
+            return (linkedListNode != null) ? linkedListNode.Value.Value : DynValue.Invalid;
 		}
 
 		/// <summary>
@@ -445,6 +545,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(string key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
             if (m_StringMap == null) return DynValue.Invalid;
             return RawGetValue(m_StringMap.Find(key));
 		}
@@ -456,6 +557,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(int key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
             if (m_ArrayMap == null) return DynValue.Invalid;
             return RawGetValue(m_ArrayMap.Find(key));
 		}
@@ -466,8 +568,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(DynValue key)
-		{
-			if (key.Type == DataType.String)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
+            if (key.Type == DataType.String)
 				return RawGet(key.String);
 
 			if (key.Type == DataType.Number)
@@ -486,8 +589,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <param name="key">The key.</param>
 		public DynValue RawGet(object key)
-		{
-			if (key == null)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
+            if (key == null)
 				return DynValue.Invalid;
 
 			if (key is string)
@@ -506,6 +610,7 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		public DynValue RawGet<T>(T key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
             return RawGet(DynValue.FromObject(OwnerScript, key));
         }
 
@@ -517,8 +622,9 @@ namespace MoonSharp.Interpreter
         /// </summary>
         /// <param name="keys">The keys to access the table and subtables</param>
         public DynValue RawGet(params object[] keys)
-		{
-			if (keys == null || keys.Length <= 0)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to RawGet on dead Table"));
+            if (keys == null || keys.Length <= 0)
 				return DynValue.Invalid;
 
 			object key;
@@ -530,8 +636,9 @@ namespace MoonSharp.Interpreter
 		#region Remove
 
 		private bool PerformTableRemove<T>(LinkedListIndex<T, TablePair> listIndex, T key, bool isNumber)
-		{
-			var removed = listIndex.Remove(key);
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to PerformTableRemove on dead Table"));
+            var removed = listIndex.Remove(key);
 
 			if (removed && isNumber)
 			{
@@ -548,6 +655,7 @@ namespace MoonSharp.Interpreter
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(string key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Remove on dead Table"));
             if (m_StringMap == null) return false;
             return PerformTableRemove(m_StringMap, key, false);
 		}
@@ -559,6 +667,7 @@ namespace MoonSharp.Interpreter
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(int key)
         {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Remove on dead Table"));
             if (m_ArrayMap == null) return false;
             return PerformTableRemove(m_ArrayMap, key, true);
 		}
@@ -569,8 +678,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(DynValue key)
-		{
-			if (key.Type == DataType.String)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Remove on dead Table"));
+            if (key.Type == DataType.String)
 				return Remove(key.String);
 
 			if (key.Type == DataType.Number)
@@ -590,8 +700,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(object key)
-		{
-			if (key is string)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Remove on dead Table"));
+            if (key is string)
 				return Remove((string)key);
 
 			if (key is int)
@@ -607,8 +718,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="key">The key.</param>
 		/// <returns><c>true</c> if values was successfully removed; otherwise, <c>false</c>.</returns>
 		public bool Remove(params object[] keys)
-		{
-			if (keys == null || keys.Length <= 0)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to Remove on dead Table"));
+            if (keys == null || keys.Length <= 0)
 				return false;
 
 			object key;
@@ -623,7 +735,8 @@ namespace MoonSharp.Interpreter
 		/// externally if it's known that no iterators are pending.
 		/// </summary>
 		public void CollectDeadKeys()
-		{
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to CollectDeadKeys on dead Table"));
             if (m_ValuesList != null)
             {
                 for (LinkedListNode<TablePair> node = ValuesList.First; node != null; node = node.Next)
@@ -644,8 +757,9 @@ namespace MoonSharp.Interpreter
 		/// Returns the next pair from a value
 		/// </summary>
 		public TablePair? NextKey(DynValue v)
-		{
-			if (v.IsNil())
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to NextKey on dead Table"));
+            if (v.IsNil())
             {
                 if (m_ValuesList == null) return TablePair.Nil;
                 LinkedListNode<TablePair> node = ValuesList.First;
@@ -683,8 +797,9 @@ namespace MoonSharp.Interpreter
 		}
 
 		private TablePair? GetNextOf(LinkedListNode<TablePair> linkedListNode)
-		{
-			while (true)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to GetNextOf on dead Table"));
+            while (true)
 			{
 				if (linkedListNode == null)
 					return null;
@@ -706,8 +821,9 @@ namespace MoonSharp.Interpreter
 		public int Length
 		{
 			get
-			{
-				if (m_CachedLength < 0)
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get Length on dead Table"));
+                if (m_CachedLength < 0)
 				{
 					m_CachedLength = 0;
                     if (m_ArrayMap != null)
@@ -722,8 +838,9 @@ namespace MoonSharp.Interpreter
 		}
 
 		internal void InitNextArrayKeys(DynValue val, bool lastpos)
-		{
-			if (val.Type == DataType.Tuple && lastpos)
+        {
+            if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to InitNextArrayKeys on dead Table"));
+            if (val.Type == DataType.Tuple && lastpos)
 			{
 				foreach (DynValue v in val.Tuple)
 					InitNextArrayKeys(v, true);
@@ -739,8 +856,16 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public Table MetaTable
 		{
-			get { return m_MetaTable; }
-			set { this.CheckScriptOwnership(m_MetaTable); m_MetaTable = value; }
+			get
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get MetaTable on dead Table"));
+                return m_MetaTable;
+            }
+			set
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to set MetaTable on dead Table"));
+                this.CheckScriptOwnership(m_MetaTable); m_MetaTable = value;
+            }
 		}
 		private Table m_MetaTable;
 
@@ -753,8 +878,9 @@ namespace MoonSharp.Interpreter
 		public IEnumerable<TablePair> Pairs
 		{
 			get
-			{
-				return m_ValuesList != null ? ValuesList.Select(n => new TablePair(n.Key, n.Value)) : Enumerable.Empty<TablePair>();
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get Pairs on dead Table"));
+                return m_ValuesList != null ? ValuesList.Select(n => new TablePair(n.Key, n.Value)) : Enumerable.Empty<TablePair>();
 			}
 		}
 
@@ -767,7 +893,8 @@ namespace MoonSharp.Interpreter
 		public IEnumerable<DynValue> Keys
 		{
 			get
-			{
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get Keys on dead Table"));
                 return m_ValuesList != null ? ValuesList.Select(n => n.Key) : Enumerable.Empty<DynValue>();
 			}
 		}
@@ -779,8 +906,9 @@ namespace MoonSharp.Interpreter
 		public IEnumerable<DynValue> Values
 		{
 			get
-			{
-				return m_ValuesList != null ? ValuesList.Select(n => n.Value) : Enumerable.Empty<DynValue>();
+            {
+                if (!_isAlive) throw new InvalidOperationException(string.Format("Attempting to get Values on dead Table"));
+                return m_ValuesList != null ? ValuesList.Select(n => n.Value) : Enumerable.Empty<DynValue>();
 			}
 		}
 	}

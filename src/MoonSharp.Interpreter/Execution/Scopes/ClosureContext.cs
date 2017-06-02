@@ -46,8 +46,10 @@ namespace MoonSharp.Interpreter.Execution
 
     internal struct ClosureRefValue
     {
-        private int index;
+        public int index;
         public SymbolRef Symbol;
+
+        internal int Index { get { return index; } }
 
         public ClosureRefValue(SymbolRef s, int index)
         {
