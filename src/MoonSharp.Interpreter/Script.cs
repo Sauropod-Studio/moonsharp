@@ -40,6 +40,9 @@ namespace MoonSharp.Interpreter
         bool m_isAlive = true;
         static DynValue[] _emptyDynList = new DynValue[0];
 
+        private List<WeakReference> _childClosures = new List<WeakReference>();
+        private List<WeakReference> _childTables = new List<WeakReference>();
+
 		/// <summary>
 		/// Initializes the <see cref="Script"/> class.
 		/// </summary>
@@ -67,32 +70,70 @@ namespace MoonSharp.Interpreter
 
         ~Script()
         {
-            _OnScriptKilled();
+            _Kill(this);
         }
 
         /// <summary>
         /// Kills the script with extreme prejudice
         /// </summary>
-        public void Kill()
+        public static void Kill(ref Script tokill)
         {
-            _OnScriptKilled();
+            _Kill(tokill);
+            tokill = null;
         }
 
         public delegate void ScriptEvent(Script script);
         public event ScriptEvent OnScriptKilled;
-        private void _OnScriptKilled()
+        private static void _Kill(Script tokill)
         {
-            if (m_isAlive && OnScriptKilled != null)
+            if (tokill.m_isAlive)
             {
-                OnScriptKilled(this);
+                if (tokill.OnScriptKilled != null)
+                {
+                    tokill.OnScriptKilled(tokill);
+                }
+                tokill.m_MainProcessor = null;
+                tokill.m_ByteCode = null;
+                tokill.m_Sources = null;
+
+                for (int i = 0; i != tokill._childClosures.Count; i++)
+                {
+                    WeakReference wr = tokill._childClosures[i];
+                    if (wr.IsAlive)
+                    {
+                        Closure c = (Closure)wr.Target;
+                        Closure.Kill(ref c);
+                    }
+                }
+                tokill._childClosures.Clear();
+                tokill._childClosures = null;
+
+                for (int i = 0; i != tokill._childTables.Count; i++)
+                {
+                    WeakReference wr = tokill._childTables[i];
+                    if (wr.IsAlive)
+                    {
+                        Table t = (Table)wr.Target;
+                        Table.Kill(ref t);
+                    }
+                }
+                tokill._childTables.Clear();
+                tokill._childTables = null;
+                Table.Kill(ref tokill.m_GlobalTable);
+
+                tokill.m_Debugger = null;
+
+                if (tokill.m_TypeMetatables != null)
+                {
+                    for (int i = 0; i != tokill.m_TypeMetatables.Length; i++)
+                    {
+                        Table.Kill(ref tokill.m_TypeMetatables[i]);
+                    }
+                }
+                tokill.m_TypeMetatables = null;
+
+                tokill.m_isAlive = false;
             }
-            m_MainProcessor = null;
-            m_ByteCode = null;
-            m_Sources = null;
-            m_GlobalTable = null;
-            m_Debugger = null;
-            m_TypeMetatables = null;
-            m_isAlive = false;
         }
 
 
@@ -143,11 +184,33 @@ namespace MoonSharp.Interpreter
             }
         }
 
-		/// <summary>
-		/// Gets the default global table for this script. Unless a different table is intentionally passed (or setfenv has been used)
-		/// execution uses this table.
-		/// </summary>
-		public Table Globals
+        internal void RegisterTable(Table table)
+        {
+            _childTables.Add(new WeakReference(table));
+        }
+
+        internal void DeregisterTable(Table table)
+        {
+            for (int i = 0; i != _childTables.Count; i++)
+            {
+                if (_childTables[i].Target == table)
+                {
+                    _childTables.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
+        internal void RegisterClosure(Closure closure)
+        {
+            _childClosures.Add(new WeakReference(closure));
+        }
+
+        /// <summary>
+        /// Gets the default global table for this script. Unless a different table is intentionally passed (or setfenv has been used)
+        /// execution uses this table.
+        /// </summary>
+        public Table Globals
 		{
 			get
             {
@@ -829,7 +892,7 @@ namespace MoonSharp.Interpreter
 		{
 			Script s = new Script(CoreModules.Basic);
 			s.LoadString("return 1;");
-            s.Kill();
+            Kill(ref s);
 		}
 
 
