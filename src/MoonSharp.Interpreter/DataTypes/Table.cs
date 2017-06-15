@@ -34,9 +34,6 @@ namespace MoonSharp.Interpreter
         {
             get { return _isAlive; }
         }
-        public static int count = 0;
-        public static int countGC = 0;
-        public static int countPrime = 0;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
@@ -49,13 +46,7 @@ namespace MoonSharp.Interpreter
             if (owner != null)
             {
                 owner.RegisterTable(this);
-                count++;
             }
-            else
-            {
-                countPrime++;
-            }
-            countGC++;
         }
 
         public static void Kill(ref Table tokill)

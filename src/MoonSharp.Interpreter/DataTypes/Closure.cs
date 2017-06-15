@@ -52,10 +52,7 @@ namespace MoonSharp.Interpreter
 		/// The current closure context
 		/// </summary>
 		internal ClosureContext ClosureContext { get; private set; }
-
-        public static int count = 0;
-        public static int countGC = 0;
-
+        
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Closure"/> class.
 		/// </summary>
@@ -64,8 +61,6 @@ namespace MoonSharp.Interpreter
 		/// <param name="resolvedLocals">The resolved locals.</param>
 		internal Closure(Script script, int idx, ClosureRefValue[] resolvedLocals)
         {
-            count++;
-            countGC++;
             isAlive = true;
             OwnerScript = script;
 			EntryPointByteCodeLocation = idx;
@@ -83,7 +78,6 @@ namespace MoonSharp.Interpreter
         {
             if (tokill != null && tokill.isAlive)
             {
-                count--;
                 tokill.ClosureContext.ReleaseValues();
                 tokill.ClosureContext = emptyClosure;
                 tokill.OwnerScript = null;
@@ -94,7 +88,6 @@ namespace MoonSharp.Interpreter
 	    ~Closure()
 	    {
             _Kill(this);
-            countGC--;
         }
 
 		/// <summary>
