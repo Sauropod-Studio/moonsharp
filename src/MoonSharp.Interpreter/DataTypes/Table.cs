@@ -59,14 +59,6 @@ namespace MoonSharp.Interpreter
         {
             if (tokill != null && tokill._isAlive)
             {
-                if (tokill.m_Owner != null)
-                {
-                    count--;
-                }
-                else
-                {
-                    countPrime--;
-                }
                 tokill.Clear();
                 tokill.m_ValuesList = null;
                 tokill.m_ValueMap = null;
@@ -80,7 +72,6 @@ namespace MoonSharp.Interpreter
         ~Table()
         {
             _Kill(this);
-            countGC--;
         }
 
         /// <summary>
@@ -125,8 +116,6 @@ namespace MoonSharp.Interpreter
             {
                 m_Owner.DeregisterTable(this);
                 m_Owner = null;
-                count--;
-                countPrime++;
                 foreach (TablePair kvp in Pairs)
                 {
                     DynValue value = kvp.Value;
