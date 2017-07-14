@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using MoonSharp.Interpreter.Execution;
+using System;
 
 namespace MoonSharp.Interpreter
 {
@@ -33,6 +34,8 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		public int EntryPointByteCodeLocation { get; private set; }
 
+        public bool isAlive { get; private set; }
+
 
 		/// <summary>
 		/// Gets the script owning this function
@@ -48,9 +51,8 @@ namespace MoonSharp.Interpreter
 		/// <summary>
 		/// The current closure context
 		/// </summary>
-		internal ClosureContext ClosureContext { get; }
-
-
+		internal ClosureContext ClosureContext { get; private set; }
+        
 		/// <summary>
 		/// Initializes a new instance of the <see cref="Closure"/> class.
 		/// </summary>
@@ -58,24 +60,44 @@ namespace MoonSharp.Interpreter
 		/// <param name="idx">The index.</param>
 		/// <param name="resolvedLocals">The resolved locals.</param>
 		internal Closure(Script script, int idx, ClosureRefValue[] resolvedLocals)
-		{
-			OwnerScript = script;
+        {
+            isAlive = true;
+            OwnerScript = script;
 			EntryPointByteCodeLocation = idx;
 			ClosureContext = new ClosureContext(resolvedLocals);
-		}
+            script.RegisterClosure(this);
+        }
+
+        public static void Kill(ref Closure tokill)
+        {
+            _Kill(tokill);
+            tokill = null;
+        }
+
+        private static void _Kill(Closure tokill)
+        {
+            if (tokill != null && tokill.isAlive)
+            {
+                tokill.ClosureContext.ReleaseValues();
+                tokill.ClosureContext = emptyClosure;
+                tokill.OwnerScript = null;
+                tokill.isAlive = false;
+            }
+        }
 
 	    ~Closure()
 	    {
-	        ClosureContext.ReleaseValues();
-	    }
+            _Kill(this);
+        }
 
 		/// <summary>
 		/// Calls this function no args, doesn't allocate an IList
 		/// </summary>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call()
-		{
-			return OwnerScript.Call(DynValue.NewClosure(this));
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
+            return OwnerScript.Call(DynValue.NewClosure(this));
 		}
 
         /// <summary>
@@ -84,6 +106,7 @@ namespace MoonSharp.Interpreter
         /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue arg1)
         {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
             return OwnerScript.Call(DynValue.NewClosure(this), arg1);
         }
 
@@ -93,6 +116,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue arg1, DynValue arg2)
         {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
             return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2);
         }
 
@@ -102,6 +126,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue arg1, DynValue arg2, DynValue arg3)
         {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
             return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2, arg3);
         }
 
@@ -111,6 +136,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(DynValue arg1, DynValue arg2, DynValue arg3, DynValue arg4)
         {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
             return OwnerScript.Call(DynValue.NewClosure(this), arg1, arg2, arg3, arg4);
         }
 
@@ -121,8 +147,9 @@ namespace MoonSharp.Interpreter
         /// <returns></returns>
         /// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
         public DynValue Call(params object[] args)
-		{
-			return OwnerScript.Call(DynValue.NewClosure(this), args);
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
+            return OwnerScript.Call(DynValue.NewClosure(this), args);
 		}
 
 		/// <summary>
@@ -132,8 +159,9 @@ namespace MoonSharp.Interpreter
 		/// <returns></returns>
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(params DynValue[] args)
-		{
-			return OwnerScript.Call(DynValue.NewClosure(this), args);
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
+            return OwnerScript.Call(DynValue.NewClosure(this), args);
 		}
 
         /// <summary>
@@ -144,6 +172,7 @@ namespace MoonSharp.Interpreter
 		/// <exception cref="System.ArgumentException">Thrown if function is not of DataType.Function</exception>
 		public DynValue Call(IList<DynValue> args)
         {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to Call on dead Closure"));
             return OwnerScript.Call(DynValue.NewClosure(this), args);
         }
 
@@ -153,8 +182,9 @@ namespace MoonSharp.Interpreter
         /// </summary>
         /// <returns></returns>
         public ScriptFunctionDelegate GetDelegate()
-		{
-			return args => this.Call(args).ToObject<object>();
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetDelegate on dead Closure"));
+            return args => this.Call(args).ToObject<object>();
 		}
 
 		/// <summary>
@@ -163,8 +193,9 @@ namespace MoonSharp.Interpreter
 		/// <typeparam name="T">The type of return value of the delegate.</typeparam>
 		/// <returns></returns>
 		public ScriptFunctionDelegate<T> GetDelegate<T>()
-		{
-			return args => this.Call(args).ToObject<T>();
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetDelegate on dead Closure"));
+            return args => this.Call(args).ToObject<T>();
 		}
 
 		/// <summary>
@@ -172,8 +203,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <returns>The number of upvalues in this closure</returns>
 		public int GetUpvaluesCount()
-		{
-			return ClosureContext.Count;
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetUpvaluesCount on dead Closure"));
+            return ClosureContext.Count;
 		}
 
 		/// <summary>
@@ -182,8 +214,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="idx">The index of the upvalue.</param>
 		/// <returns>The upvalue name</returns>
 		public string GetUpvalueName(int idx)
-		{
-			return ClosureContext[idx].Symbol.Name;
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetUpvalueName on dead Closure"));
+            return ClosureContext[idx].Symbol.Name;
 		}
 
 		/// <summary>
@@ -192,8 +225,9 @@ namespace MoonSharp.Interpreter
 		/// <param name="idx">The index of the upvalue.</param>
 		/// <returns>The value of an upvalue </returns>
 		public DynValue GetUpvalue(int idx)
-		{
-			return ClosureContext[idx].Get();
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetUpvalue on dead Closure"));
+            return ClosureContext[idx].Get();
 		}
 
 		/// <summary>
@@ -201,8 +235,9 @@ namespace MoonSharp.Interpreter
 		/// </summary>
 		/// <returns></returns>
 		public UpvaluesType GetUpvaluesType()
-		{
-			int count = GetUpvaluesCount();
+        {
+            if (!isAlive) throw new InvalidOperationException(string.Format("Attempting to GetUpvaluesType on dead Closure"));
+            int count = GetUpvaluesCount();
 
 			if (count == 0)
 				return UpvaluesType.None;

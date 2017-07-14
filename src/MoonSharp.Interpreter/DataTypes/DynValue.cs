@@ -17,6 +17,115 @@ namespace MoonSharp.Interpreter
         private static int[] _refCount = new int[HEAP_SIZE];
         private static Stack<int> _emptySlots = new Stack<int>(1024*1024);
 
+        public static HashSet<int> FindCircularReferences()
+        {
+            //Array.Clear(_refCount, 0, _refCount.Length);
+            var result = new HashSet<int>();
+            var visited = new HashSet<object>();
+            var queue = new Queue<DynValue>();
+            for (var i = 0; i < _size; i++)
+            {
+                if (_refCount[i] <= 0) continue;
+                queue.Enqueue(_heapAllocatedDynValue[i]);
+            }
+            while (queue.Count > 0)
+            {
+                DynValue v = queue.Dequeue();
+
+                var o = v.Object;
+                if (o == null)
+                    continue;
+
+                if (!visited.Add(o))
+                    continue;
+
+                var f = v.Function;
+                if (f != null)
+                {
+                    var count = f.ClosureContext.Count;
+                    for (var j = 0; j < count; j++)
+                    {
+                        var index = f.ClosureContext[j].Index;
+                        //if (_refCount[index] > 0)
+                        result.Add(index);
+                    }
+                }
+
+                var table = v.Table;
+                if (table != null)
+                {
+                    foreach (var key in table.Keys)
+                        queue.Enqueue(key);
+                    foreach (var value in table.Values)
+                        queue.Enqueue(value);
+                }
+
+                var tuple = v.Tuple;
+                if (tuple != null)
+                {
+                    //foreach (var o in tuple.)
+                }
+            }
+            return result;
+        }
+
+        public static HashSet<int> FindDeadReferences()
+        {
+            //Array.Clear(_refCount, 0, _refCount.Length);
+            var result = new HashSet<int>();
+            for (var i = 0; i < _size; i++)
+            {
+                if (_refCount[i] <= 0) continue;
+                var f = _heapAllocatedDynValue[i].Function;
+                if (f != null && !f.isAlive)
+                    result.Add(i);
+                var t = _heapAllocatedDynValue[i].Table;
+                if (t != null && !t.isAlive)
+                    result.Add(i);
+            }
+            return result;
+        }
+
+        public static void FreeCircularReferences()
+        {
+            var refs = FindCircularReferences();
+            FreeReferences(refs);
+        }
+
+        public static void FreeDeadReferences()
+        {
+            var refs = FindDeadReferences();
+            FreeReferences(refs);
+        }
+
+        public static void FreeReferences(IEnumerable<int> refs)
+        {
+            lock (_emptySlots)
+            {
+                foreach (var i in refs)
+                {
+                    _refCount[i] = 0;
+                    _heapAllocatedDynValue[i] = default(DynValue);
+                    _emptySlots.Push(i);
+                }
+
+                // Recompact empty slots
+                var sortedSlots = new List<int>(_emptySlots);
+                sortedSlots.Sort();
+                var keep = sortedSlots.Count;
+                while (keep > 0)
+                {
+                    if (sortedSlots[keep - 1] != _size - 1)
+                        break;
+                    _size--;
+                    keep--;
+                }
+                _emptySlots.Clear();
+                for (var i = 0; i < keep; i++)
+                    _emptySlots.Push(sortedSlots[i]);
+            }
+        }
+
         public static int Allocate()
         {
             int position;
@@ -105,6 +214,7 @@ namespace MoonSharp.Interpreter
 //        [MarshalAs(UnmanagedType.I1)]
         private DataType m_Type;
 
+        internal object Object { get { return m_Object; } }
 
 
         /// <summary>
